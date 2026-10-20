@@ -95,8 +95,8 @@ class HomeActivity : BaseActivity() {
         prefs = Prefs(this)
 
         val loc = currentLocale()
-        timeFormat = SimpleDateFormat("HH:mm", loc)
-        dateFormat = SimpleDateFormat("EEEE, d MMMM", loc)
+        timeFormat = SimpleDateFormat("HH:mm", Locale.US)
+        dateFormat = SimpleDateFormat("EEEE، d MMMM yyyy", loc)
         dayFormat = SimpleDateFormat("EEE", loc)
 
         audioManager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
@@ -137,7 +137,7 @@ class HomeActivity : BaseActivity() {
      * prompted on every launch.
      */
     private fun ensureLocationPermission() {
-        if (Permissions.hasLocation(this) || prefs.askedLocation) return
+        if (prefs.cardMode(Prefs.SLOT_WEATHER) == Prefs.CARD_NONE || Permissions.hasLocation(this) || prefs.askedLocation) return
         prefs.askedLocation = true
         Permissions.requestLocation(this, REQ_LOCATION)
     }
@@ -1100,11 +1100,43 @@ class HomeActivity : BaseActivity() {
     private fun updateClock() {
         val now = Date()
         binding.bigClock.text = timeFormat.format(now)
-        binding.bigDate.text = dateFormat.format(now)
+        binding.bigDate.text = latinDigits(dateFormat.format(now)) + hijriDateLine()
         // The analog face has no timer of its own; it repaints from here.
         if (binding.analogClock.visibility == android.view.View.VISIBLE) {
             binding.analogClock.invalidate()
         }
+    }
+
+
+    /** Latin digits even when the interface language is Arabic. */
+    private fun latinDigits(value: String): String = buildString(value.length) {
+        for (ch in value) {
+            append(when (ch) {
+                in '٠'..'٩' -> ('0'.code + ch.code - '٠'.code).toChar()
+                in '۰'..'۹' -> ('0'.code + ch.code - '۰'.code).toChar()
+                else -> ch
+            })
+        }
+    }
+
+    /** Use Android ICU's Umm al-Qura calendar on TS10S (Android 12). */
+    private fun hijriDateLine(): String {
+        if (Build.VERSION.SDK_INT < 24) return ""
+        return try {
+            val calendar = android.icu.util.IslamicCalendar(
+                android.icu.util.ULocale("ar_SA@calendar=islamic-umalqura")
+            )
+            calendar.timeInMillis = System.currentTimeMillis()
+            val months = arrayOf(
+                "محرم", "صفر", "ربيع الأول", "ربيع الآخر",
+                "جمادى الأولى", "جمادى الآخرة", "رجب", "شعبان",
+                "رمضان", "شوال", "ذو القعدة", "ذو الحجة"
+            )
+            val day = calendar.get(android.icu.util.Calendar.DAY_OF_MONTH)
+            val month = calendar.get(android.icu.util.Calendar.MONTH)
+            val year = calendar.get(android.icu.util.Calendar.YEAR)
+            "\n" + String.format(Locale.US, "%d %s %d هـ", day, months[month], year)
+        } catch (_: Exception) { "" }
     }
 
     private fun currentLocale(): Locale =
@@ -1117,7 +1149,7 @@ class HomeActivity : BaseActivity() {
     /** Refresh weather at most every 15 minutes (Open-Meteo is free but be polite). */
     private fun maybeRefreshWeather() {
         if (System.currentTimeMillis() - lastWeatherFetch >= WEATHER_INTERVAL_MS) {
-            loadWeather()
+            if (prefs.cardMode(Prefs.SLOT_WEATHER) != Prefs.CARD_NONE) loadWeather()
         }
     }
 
@@ -1196,7 +1228,7 @@ class HomeActivity : BaseActivity() {
         applyAccent()
         applyKeepScreenOn()
         handler.post(ticker)
-        loadWeather()
+        if (prefs.cardMode(Prefs.SLOT_WEATHER) != Prefs.CARD_NONE) loadWeather()
         mediaMonitor?.start()
         // Widgets only receive updates while the host is listening, and there's
         // no point listening for a dashboard that shows none.
