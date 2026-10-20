@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Dashline</string>
+    <string name="app_name">MG5 Dashboard</string>
 
     <string name="tab_audio">الصوت</string>
     <string name="tab_phone">الهاتف</string>
