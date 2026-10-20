@@ -50,7 +50,7 @@ class SetupActivity : BaseActivity() {
 
         // Ask for location up front — one dialog, rather than surprising the user
         // on the dashboard later. The rest are opt-in taps below.
-        if (!Permissions.hasLocation(this)) {
+        if (prefs.cardMode(Prefs.SLOT_WEATHER) != Prefs.CARD_NONE && !Permissions.hasLocation(this)) {
             prefs.askedLocation = true
             Permissions.requestLocation(this, REQ_LOCATION)
         }
