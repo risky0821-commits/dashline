@@ -32,12 +32,12 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putString(KEY_NAV, v).apply()
 
     var radioApp: String?
-        get() = sp.getString(KEY_RADIO, null)
+        get() = sp.getString(KEY_RADIO, "com.tw.radio")
         set(v) = sp.edit().putString(KEY_RADIO, v).apply()
 
     /** App to launch from the media widget when nothing is playing. */
     var mediaApp: String?
-        get() = sp.getString(KEY_MEDIA, null)
+        get() = sp.getString(KEY_MEDIA, "org.videolan.vlc")
         set(v) = sp.edit().putString(KEY_MEDIA, v).apply()
 
     /** Phone-projection apps behind the Android Auto / CarPlay shortcuts. */
@@ -65,7 +65,7 @@ class Prefs(context: Context) {
 
     /** Language override as an ISO code (e.g. "tr"), or "" to follow the system. */
     var language: String
-        get() = sp.getString(KEY_LANGUAGE, "") ?: ""
+        get() = sp.getString(KEY_LANGUAGE, "ar") ?: "ar"
         set(v) = sp.edit().putString(KEY_LANGUAGE, v).apply()
 
     /**
@@ -110,7 +110,7 @@ class Prefs(context: Context) {
     fun defaultCardMode(slot: String): String = when (slot) {
         SLOT_MEDIA -> CARD_MEDIA
         SLOT_CLOCK -> CARD_CLOCK
-        SLOT_WEATHER -> CARD_WEATHER
+        SLOT_WEATHER -> CARD_NONE
         else -> CARD_PHONE
     }
 
@@ -208,7 +208,7 @@ class Prefs(context: Context) {
      * have no projection app at all, and the row is dead space there.
      */
     var projectionVisible: Boolean
-        get() = sp.getBoolean(KEY_PROJECTION_ON, true)
+        get() = sp.getBoolean(KEY_PROJECTION_ON, false)
         set(v) = sp.edit().putBoolean(KEY_PROJECTION_ON, v).apply()
 
     // ---- clock ------------------------------------------------------------
@@ -452,6 +452,7 @@ class Prefs(context: Context) {
 /** Common package names to try when the user hasn't picked one for a role. */
 object Defaults {
     val PHONE = listOf(
+        "com.tw.bt",
         "com.google.android.dialer",
         "com.android.dialer",
         "com.samsung.android.dialer"
@@ -462,12 +463,14 @@ object Defaults {
         "com.sygic.aura"
     )
     val RADIO = listOf(
+        "com.tw.radio",
         "com.mtk.fm",
         "com.microntek.radio",
         "com.android.fmradio",
         "com.rtk.fmradio"
     )
     val MEDIA = listOf(
+        "org.videolan.vlc",
         "com.spotify.music",
         "com.google.android.apps.youtube.music",
         "com.google.android.music",
