@@ -7,6 +7,8 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.widget.ImageView
+import android.app.AlertDialog
 import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
@@ -46,6 +48,8 @@ class Mg5DashboardActivity : BaseActivity() {
     private var swipeStartX = 0f
     private var swipeStartY = 0f
     private var athkarIndex = 0
+    private val rideDhikr = "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ، وَإِنَّا إِلَى رَبِّنَا لَمُنْقَلِبُونَ."
+    private val exitDhikr = "بِسْمِ اللَّهِ، تَوَكَّلْتُ عَلَى اللَّهِ، وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ."
     private lateinit var athkarLabel: TextView
     private val athkar = listOf(
         "سبحان الله وبحمده",
@@ -181,20 +185,17 @@ class Mg5DashboardActivity : BaseActivity() {
         dashboard.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
         dashboard.addView(gap(10))
 
-        val map = card("#10416A", "#07283D")
-        map.background = shape(shade("#10436A"), shade("#07283E"), 24, shade("#207F9A"))
-        map.addView(text("الملاحة", 19f, mint, true))
-        map.addView(gap(18))
-        map.addView(text("الطريق أمامك", 40f, ink, true))
-        map.addView(gap(8))
-        map.addView(text("خرائط Google  •  افتح الملاحة بضغطة", 17f, muted))
-        map.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-        val mapAction = button("افتح الخرائط", "➤", shade("#12D8CC"), shade("#088EBA"), ink) {
-            openPackage("com.google.android.apps.maps")
-        }
-        map.addView(mapAction, LinearLayout.LayoutParams(-1, dp(76)))
-        map.setOnClickListener { openPackage("com.google.android.apps.maps") }
-        left.addView(map, LinearLayout.LayoutParams(-1, 0, 1.55f))
+        val ride = card("#113E68", "#06192E")
+        ride.background = Mg5SceneDrawable(Mg5SceneDrawable.Mode.RIDE)
+        ride.addView(text("أذكار ركوب السيارة", 29f, ink, true))
+        ride.addView(gap(18))
+        ride.addView(text("سبحان الذي سخر لنا هذا وما كنا له مقرنين\nوإنا إلى ربنا لمنقلبون", 19f, ink, true))
+        ride.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+        ride.addView(button("عرض الذكر", "▤", shade("#19C5ED"), shade("#0576CB")) {
+            showDhikr("ذكر ركوب السيارة", rideDhikr)
+        }, LinearLayout.LayoutParams(-1, dp(68)))
+        ride.setOnClickListener { showDhikr("ذكر ركوب السيارة", rideDhikr) }
+        left.addView(ride, LinearLayout.LayoutParams(-1, 0, 1.45f))
         left.addView(gap(12))
 
         val media = card("#1B2C3A", "#172633")
@@ -226,50 +227,59 @@ class Mg5DashboardActivity : BaseActivity() {
         media.addView(controls)
         left.addView(media, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        val dateCard = card("#172834", "#12222D")
-        val cap = text("الساعة والتاريخ  •  الرياض", 17f, mint, true)
-        dateCard.addView(cap)
-        clock = text("--:--", 66f, ink, true)
+        val dateCard = card("#132D54", "#0B1F3E")
+        dateCard.addView(text("الساعة والتاريخ  •  الرياض", 16f, mint, true))
+        dateCard.addView(gap(8))
+        val clockRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        val weatherColumn = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+        }
+        weatherLabel = text("☀  --°", 23f, ink, true, Gravity.CENTER)
+        weatherColumn.addView(weatherLabel)
+        weatherColumn.addView(text("الرياض", 15f, muted, true, Gravity.CENTER))
+        clockRow.addView(weatherColumn, LinearLayout.LayoutParams(0, dp(85), 0.45f))
+        clockRow.addView(View(this).apply { setBackgroundColor(shade("#237AB0")) },
+            LinearLayout.LayoutParams(dp(1), dp(75)))
+        clock = text("--:--", 63f, ink, true)
         clock.textDirection = View.TEXT_DIRECTION_LTR
-        clock.gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
-        dateCard.addView(clock)
+        clockRow.addView(clock, LinearLayout.LayoutParams(0, dp(85), 1f))
+        dateCard.addView(clockRow)
         gregorian = text("", 16f, ink)
         hijri = text("", 16f, muted)
         dateCard.addView(gregorian)
-        dateCard.addView(gap(6))
         dateCard.addView(hijri)
-        dateCard.addView(gap(10))
-        weatherLabel = text("طقس الرياض  •  جارٍ التحديث…", 17f, ink, true)
-        weatherLabel.background = shape(shade("#14537A"), shade("#103C63"), 15, shade("#208EB0"))
-        weatherLabel.setPadding(dp(12), 0, dp(12), 0)
-        dateCard.addView(weatherLabel, LinearLayout.LayoutParams(-1, dp(48)))
-        right.addView(dateCard, LinearLayout.LayoutParams(-1, 0, 1.18f))
-        right.addView(gap(12))
+        right.addView(dateCard, LinearLayout.LayoutParams(-1, 0, 1.09f))
+        right.addView(gap(10))
 
-        // Direct shortcut to the original factory climate app; no CAN-BUS changes.
+        val exitCard = card("#233C51", "#0C2444")
+        exitCard.background = Mg5SceneDrawable(Mg5SceneDrawable.Mode.HOME)
+        exitCard.setPadding(dp(14), dp(10), dp(14), dp(10))
+        exitCard.addView(text("دعاء الخروج من المنزل", 20f, ink, true))
+        exitCard.addView(gap(8))
+        exitCard.addView(text("بسم الله، توكلت على الله،\nولا حول ولا قوة إلا بالله", 16f, ink, true))
+        exitCard.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+        exitCard.addView(button("عرض الدعاء", "▤", shade("#08ABD8"), shade("#086BAF")) {
+            showDhikr("دعاء الخروج من المنزل", exitDhikr)
+        }, LinearLayout.LayoutParams(-1, dp(51)))
+        exitCard.setOnClickListener { showDhikr("دعاء الخروج من المنزل", exitDhikr) }
+        right.addView(exitCard, LinearLayout.LayoutParams(-1, 0, 1.02f))
+        right.addView(gap(10))
+
         val climate = card("#153B55", "#102A43")
-        climate.addView(text("❄  المكيف", 22f, mint, true))
-        climate.addView(gap(5))
-        climate.addView(text("إعدادات تكييف السيارة", 16f, muted))
+        climate.background = Mg5SceneDrawable(Mg5SceneDrawable.Mode.CLIMATE)
+        climate.setPadding(dp(14), dp(9), dp(14), dp(9))
+        climate.addView(text("❄  المكيف", 20f, mint, true))
         climate.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-        val openClimate = button("افتح المكيف", "❄", shade("#0D9CAB"), shade("#1676AE")) {
+        climate.addView(button("افتح المكيف", "❄", shade("#118FC9"), shade("#09629B")) {
             openClimateApp()
-        }
-        climate.addView(openClimate, LinearLayout.LayoutParams(-1, dp(62)))
+        }, LinearLayout.LayoutParams(-1, dp(54)))
         climate.setOnClickListener { openClimateApp() }
-        right.addView(climate, LinearLayout.LayoutParams(-1, 0, 0.83f))
-        right.addView(gap(12))
-
-        val athkarCard = card("#2B302B", "#232E2B")
-        athkarCard.setPadding(dp(16), dp(10), dp(16), dp(10))
-        athkarCard.addView(text("ذكر الطريق", 14f, mint, true))
-        athkarLabel = text(athkar[0], 18f, ink, true)
-        athkarCard.addView(athkarLabel, LinearLayout.LayoutParams(-1, 0, 1f))
-        athkarCard.setOnClickListener {
-            athkarIndex = (athkarIndex + 1) % athkar.size
-            athkarLabel.text = athkar[athkarIndex]
-        }
-        right.addView(athkarCard, LinearLayout.LayoutParams(-1, 0, 0.48f))
+        right.addView(climate, LinearLayout.LayoutParams(-1, 0, 0.72f))
 
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -277,10 +287,11 @@ class Mg5DashboardActivity : BaseActivity() {
         }
         val shortcuts = listOf(
             Triple("التطبيقات", "▦", "apps"),
-            Triple("المكيف", "❄", "climate"),
             Triple("يوتيوب", "▶", "youtube"),
-            Triple("الراديو", "◉", "radio"),
+            Triple("خرائط", "➤", "maps"),
+            Triple("المكيف", "❄", "climate"),
             Triple("الموسيقى", "♫", "music"),
+            Triple("الراديو", "◉", "radio"),
             Triple("الأصلية", "⌂", "dofun")
         )
         shortcuts.forEachIndexed { index, (label, symbol, action) ->
@@ -291,6 +302,7 @@ class Mg5DashboardActivity : BaseActivity() {
                     "radio" -> openCarApp("com.tw.radio", "com.tw.radio.RadioActivity")
                     "climate" -> openClimateApp()
                     "youtube" -> openPackage("com.google.android.youtube")
+                    "maps" -> openPackage("com.google.android.apps.maps")
                     "music" -> openMusic()
                     "dofun" -> openCarApp("com.dofun.variety", "com.dofun.overseasvariety.Launcher")
                 }
@@ -299,6 +311,10 @@ class Mg5DashboardActivity : BaseActivity() {
             footer.addView(tile, LinearLayout.LayoutParams(0, dp(87), 1f))
         }
         dashboard.addView(footer, LinearLayout.LayoutParams(-1, dp(87)))
+    }
+
+    private fun showDhikr(title: String, words: String) {
+        AlertDialog.Builder(this).setTitle(title).setMessage(words).setPositiveButton("إغلاق", null).show()
     }
 
     private fun button(label: String, mark: String, start: Int, end: Int = start,
@@ -311,8 +327,26 @@ class Mg5DashboardActivity : BaseActivity() {
             isFocusable = true
             contentDescription = label
         }
-        val icon = text(mark, 27f, foreground, true, Gravity.CENTER)
-        button.addView(icon, LinearLayout.LayoutParams(-1, 0, 1f))
+        val glyph = when (mark) {
+            "▦" -> "apps"
+            "❄" -> "climate"
+            "▶" -> "youtube"
+            "➤" -> "maps"
+            "♫" -> "music"
+            "◉" -> "radio"
+            "⌂" -> "home"
+            else -> ""
+        }
+        if (glyph.isNotEmpty()) {
+            val icon = ImageView(this).apply {
+                setImageDrawable(Mg5GlyphDrawable(glyph))
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+            }
+            button.addView(icon, LinearLayout.LayoutParams(dp(47), 0, 1f))
+        } else {
+            val icon = text(mark, 27f, foreground, true, Gravity.CENTER)
+            button.addView(icon, LinearLayout.LayoutParams(-1, 0, 1f))
+        }
         button.addView(text(label, 17f, foreground, true, Gravity.CENTER),
             LinearLayout.LayoutParams(-1, 0, 1f))
         if (click != null) button.setOnClickListener { click() }
@@ -393,14 +427,13 @@ class Mg5DashboardActivity : BaseActivity() {
                 runOnUiThread {
                     if (!isFinishing) {
                         weatherLabel.text = String.format(
-                            Locale.US, "الرياض  •  %.0f°م  •  %s",
-                            temperature, weatherDescription(code)
+                            Locale.US, "☀  %.0f°", temperature
                         )
                     }
                 }
             } catch (_: Exception) {
                 runOnUiThread {
-                    if (!isFinishing) weatherLabel.text = "طقس الرياض غير متاح دون إنترنت"
+                    if (!isFinishing) weatherLabel.text = "☁  --°"
                 }
             }
         }
