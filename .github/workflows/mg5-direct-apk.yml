@@ -20,14 +20,14 @@ jobs:
       - name: Build Android 12 debug APK
         run: gradle assemblePlayDebug --no-daemon --stacktrace
       - name: Prepare APK
-        run: cp app/build/outputs/apk/play/debug/app-play-debug.apk MG5-Dashboard-TS10S-alpha.apk
+        run: cp app/build/outputs/apk/play/debug/app-play-debug.apk MG5-Dashboard-TS10S-alpha2.apk
       - name: Publish pre-release for easy phone download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create mg5-ts10s-alpha1 MG5-Dashboard-TS10S-alpha.apk \
+          gh release create mg5-ts10s-alpha2 MG5-Dashboard-TS10S-alpha2.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "MG5 Dashboard - TS10S Alpha 1" \
+            --title "MG5 Dashboard - TS10S Alpha 2" \
             --notes "Unverified test build for TS10S Android 12. Do not set as default launcher until tested. Source: mg5-dashboard-v1 branch. GPL-3.0." \
             --prerelease
