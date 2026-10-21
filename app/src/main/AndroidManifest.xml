@@ -54,6 +54,11 @@
           keyboard covers half the grid the moment the Apps tab is tapped.
         -->
         <activity
+            android:name=".Mg5AppsActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
+            android:parentActivityName=".Mg5DashboardActivity" />
+        <activity
             android:name=".AppDrawerActivity"
             android:exported="false"
             android:configChanges="keyboard|keyboardHidden|navigation"

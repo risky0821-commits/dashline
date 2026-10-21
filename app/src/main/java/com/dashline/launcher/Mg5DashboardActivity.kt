@@ -17,13 +17,8 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Locale
-import kotlin.concurrent.thread
 
 /**
  * Automotive-first 1280x720 landscape dashboard.
@@ -34,17 +29,12 @@ import kotlin.concurrent.thread
 class Mg5DashboardActivity : BaseActivity() {
     private val ink = Color.rgb(237, 246, 245)
     private val muted = Color.rgb(153, 176, 180)
-    private val mint = Color.rgb(74, 224, 173)
+    private val mint = Color.rgb(40, 235, 212)
     private val dark = Color.rgb(15, 27, 35)
     private lateinit var dashboard: LinearLayout
     private lateinit var clock: TextView
     private lateinit var gregorian: TextView
     private lateinit var hijri: TextView
-    private lateinit var prayerStatus: TextView
-    private val prayerCells = mutableListOf<TextView>()
-    private val prayerNames = listOf("الفجر", "الظهر", "العصر", "المغرب", "العشاء")
-    private val prayerKeys = listOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
-    private var prayerTimes = emptyList<String>()
     private var athkarIndex = 0
     private lateinit var athkarLabel: TextView
     private val athkar = listOf(
@@ -58,7 +48,6 @@ class Mg5DashboardActivity : BaseActivity() {
     private val ticker = object : Runnable {
         override fun run() {
             updateDates()
-            if (prayerTimes.size == 5) displayNextPrayer()
             handler.postDelayed(this, 30000L)
         }
     }
@@ -67,7 +56,6 @@ class Mg5DashboardActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         buildDashboard()
         updateDates()
-        fetchPrayerTimes()
     }
 
     override fun onResume() {
@@ -86,7 +74,7 @@ class Mg5DashboardActivity : BaseActivity() {
     private fun shade(hex: String) = Color.parseColor(hex)
     private fun backdrop() = GradientDrawable(
         GradientDrawable.Orientation.TL_BR,
-        intArrayOf(shade("#080F16"), shade("#101E29"), shade("#07161A"))
+        intArrayOf(shade("#061426"), shade("#092847"), shade("#07152C"))
     )
     private fun shape(a: Int, b: Int = a, radius: Int = 24, border: Int = 0): GradientDrawable {
         val d = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(a, b))
@@ -137,7 +125,7 @@ class Mg5DashboardActivity : BaseActivity() {
         val brand = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         brand.addView(text("MG5  /  DASHBOARD", 23f, ink, true, Gravity.LEFT))
         brand.addView(gap(3))
-        brand.addView(text("قيادة أذكى  •  واجهة عربية خاصة", 13f, muted, false, Gravity.LEFT))
+        brand.addView(text("قيادتك، على طريقتك", 14f, muted, false, Gravity.LEFT))
         top.addView(brand, LinearLayout.LayoutParams(0, dp(54), 1f))
         val classic = button("الكلاسيكية", "↗", shade("#1D3440"), shade("#223744")) {
             startActivity(Intent(this, HomeActivity::class.java))
@@ -164,15 +152,15 @@ class Mg5DashboardActivity : BaseActivity() {
         dashboard.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
         dashboard.addView(gap(14))
 
-        val map = card("#103D39", "#0C292E")
-        map.background = shape(shade("#153E3B"), shade("#0B292F"), 24, shade("#2F6962"))
+        val map = card("#10416A", "#07283D")
+        map.background = shape(shade("#10436A"), shade("#07283E"), 24, shade("#207F9A"))
         map.addView(text("الملاحة", 17f, mint, true))
         map.addView(gap(18))
-        map.addView(text("الطريق أمامك", 37f, ink, true))
+        map.addView(text("الطريق أمامك", 40f, ink, true))
         map.addView(gap(8))
-        map.addView(text("خرائط Google  •  وجهتك بضغطة واحدة", 17f, muted))
+        map.addView(text("خرائط Google  •  افتح الملاحة بضغطة", 17f, muted))
         map.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-        val mapAction = button("افتح الخرائط", "➤", shade("#26B98B"), shade("#18A278"), ink) {
+        val mapAction = button("افتح الخرائط", "➤", shade("#12D8CC"), shade("#088EBA"), ink) {
             openPackage("com.google.android.apps.maps")
         }
         map.addView(mapAction, LinearLayout.LayoutParams(-1, dp(62)))
@@ -185,15 +173,15 @@ class Mg5DashboardActivity : BaseActivity() {
             gravity = Gravity.CENTER_VERTICAL
             orientation = LinearLayout.HORIZONTAL
         }
-        title.addView(text("VLC  •  مشغل الوسائط", 20f, ink, true),
+        title.addView(text("الموسيقى  •  مشغل الصوت", 20f, ink, true),
             LinearLayout.LayoutParams(0, dp(33), 1f))
         val openMedia = button("فتح", "↗", shade("#304652"), shade("#304652")) {
-            openPackage("org.videolan.vlc")
+            openMusic()
         }
         title.addView(openMedia, LinearLayout.LayoutParams(dp(98), dp(42)))
         media.addView(title)
         media.addView(gap(8))
-        media.addView(text("تحكم سريع في التشغيل والصوت", 14f, muted))
+        media.addView(text("استمع إلى أغانيك  •  تحكم سريع بالمقاطع", 14f, muted))
         media.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val prev = button("السابق", "◀◀", shade("#273F4A")) { sendMedia(KeyEvent.KEYCODE_MEDIA_PREVIOUS) }
@@ -221,31 +209,7 @@ class Mg5DashboardActivity : BaseActivity() {
         dateCard.addView(gregorian)
         dateCard.addView(gap(6))
         dateCard.addView(hijri)
-        right.addView(dateCard, LinearLayout.LayoutParams(-1, 0, 1.2f))
-        right.addView(gap(12))
-
-        val prayers = card("#1A3036", "#15292D")
-        prayers.addView(text("مواقيت الصلاة  •  الرياض", 17f, mint, true))
-        prayers.addView(gap(12))
-        val prayerRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        prayerNames.forEach { name ->
-            val cell = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-            }
-            cell.addView(text(name, 12.5f, muted, true, Gravity.CENTER),
-                LinearLayout.LayoutParams(-1, dp(24)))
-            val time = text("--:--", 16f, ink, true, Gravity.CENTER)
-            time.textDirection = View.TEXT_DIRECTION_LTR
-            prayerCells.add(time)
-            cell.addView(time, LinearLayout.LayoutParams(-1, dp(32)))
-            prayerRow.addView(cell, LinearLayout.LayoutParams(0, dp(60), 1f))
-        }
-        prayers.addView(prayerRow)
-        prayers.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
-        prayerStatus = text("جاري جلب مواقيت أم القرى…", 13f, muted)
-        prayers.addView(prayerStatus)
-        right.addView(prayers, LinearLayout.LayoutParams(-1, 0, 1.14f))
+        right.addView(dateCard, LinearLayout.LayoutParams(-1, 0, 1.7f))
         right.addView(gap(12))
 
         val athkarCard = card("#2B302B", "#232E2B")
@@ -257,7 +221,7 @@ class Mg5DashboardActivity : BaseActivity() {
             athkarIndex = (athkarIndex + 1) % athkar.size
             athkarLabel.text = athkar[athkarIndex]
         }
-        right.addView(athkarCard, LinearLayout.LayoutParams(-1, 0, 0.7f))
+        right.addView(athkarCard, LinearLayout.LayoutParams(-1, 0, 0.55f))
 
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -267,7 +231,7 @@ class Mg5DashboardActivity : BaseActivity() {
             Triple("التطبيقات", "▦", "apps"),
             Triple("الراديو", "◉", "radio"),
             Triple("بلوتوث", "☎", "bt"),
-            Triple("VLC", "♫", "vlc"),
+            Triple("الموسيقى", "♫", "music"),
             Triple("خرائط", "➤", "maps"),
             Triple("الإعدادات", "⚙", "settings"),
             Triple("الأصلية", "⌂", "dofun")
@@ -276,10 +240,10 @@ class Mg5DashboardActivity : BaseActivity() {
             val tile = button(label, symbol, shade("#1B2C36"), shade("#15242D"))
             tile.setOnClickListener {
                 when (action) {
-                    "apps" -> startActivity(Intent(this, AppDrawerActivity::class.java))
+                    "apps" -> startActivity(Intent(this, Mg5AppsActivity::class.java))
                     "radio" -> openCarApp("com.tw.radio", "com.tw.radio.RadioActivity")
                     "bt" -> openCarApp("com.tw.bt", "com.tw.bt.ATBluetoothActivity")
-                    "vlc" -> openPackage("org.videolan.vlc")
+                    "music" -> openMusic()
                     "maps" -> openPackage("com.google.android.apps.maps")
                     "settings" -> startActivity(Intent(this, SettingsActivity::class.java))
                     "dofun" -> openCarApp("com.dofun.variety", "com.dofun.overseasvariety.Launcher")
@@ -307,6 +271,25 @@ class Mg5DashboardActivity : BaseActivity() {
             LinearLayout.LayoutParams(-1, 0, 1f))
         if (click != null) button.setOnClickListener { click() }
         return button
+    }
+
+
+    /** Opens an installed, dedicated music app; prefers Lark Player already on TS10S.
+     * No APK bundling or dependency on VLC. Media keys control the active player.
+     */
+    private fun openMusic() {
+        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val pm = packageManager
+        val installed = pm.queryIntentActivities(intent, 0)
+        val preferred = listOf("musicolet", "lark player", "ymusic", "music player", "الموسيقى")
+        val found = preferred.firstNotNullOfOrNull { needle ->
+            installed.firstOrNull { app ->
+                app.loadLabel(pm).toString().lowercase(Locale.ROOT).contains(needle)
+            }?.activityInfo?.packageName
+        }
+        if (found == null || !AppRepository.launch(this, found)) {
+            Toast.makeText(this, "ثبّت مشغل موسيقى مثل Musicolet أو افتح Lark Player", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun openPackage(pkg: String) {
@@ -365,44 +348,4 @@ class Mg5DashboardActivity : BaseActivity() {
         }
     }
 
-    /** Network-derived, not guessed. Riyadh is explicit until city selection is added. */
-    private fun fetchPrayerTimes() {
-        thread(name = "MG5-prayer-times") {
-            try {
-                val url = URL("https://api.aladhan.com/v1/timingsByCity?city=Riyadh&country=Saudi%20Arabia&method=4")
-                val conn = url.openConnection() as HttpURLConnection
-                conn.connectTimeout = 6000
-                conn.readTimeout = 6000
-                val body = try { conn.inputStream.bufferedReader().use { it.readText() } }
-                           finally { conn.disconnect() }
-                val timings = JSONObject(body).getJSONObject("data").getJSONObject("timings")
-                val values = prayerKeys.map { latin(timings.getString(it).substringBefore(" ")) }
-                runOnUiThread {
-                    if (isFinishing) return@runOnUiThread
-                    prayerTimes = values
-                    values.forEachIndexed { i, value -> prayerCells[i].text = value }
-                    displayNextPrayer()
-                }
-            } catch (_: Exception) {
-                runOnUiThread {
-                    if (!isFinishing) prayerStatus.text = "مواقيت الصلاة غير متاحة دون اتصال"
-                }
-            }
-        }
-    }
-
-    private fun displayNextPrayer() {
-        val now = Calendar.getInstance()
-        val minute = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
-        val index = prayerTimes.indexOfFirst { value ->
-            val pieces = value.split(":")
-            pieces.size >= 2 && ((pieces[0].toIntOrNull() ?: -1) * 60 +
-                (pieces[1].toIntOrNull() ?: -1)) > minute
-        }
-        prayerStatus.text = if (index < 0) {
-            "الصلاة القادمة: الفجر غدًا  •  الرياض"
-        } else {
-            "الصلاة القادمة: " + prayerNames[index] + "  •  " + prayerTimes[index]
-        }
-    }
 }
