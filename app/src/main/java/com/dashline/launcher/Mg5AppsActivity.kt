@@ -26,7 +26,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.util.Locale
 
-/** Real app icons, real installed apps, 6-column responsive tablet grid. */
+/** Real app icons, real installed apps, larger five-column touch targets. */
 class Mg5AppsActivity : BaseActivity() {
     private val accent = Color.rgb(22, 226, 215)
     private val white = Color.rgb(239, 248, 255)
@@ -84,10 +84,12 @@ class Mg5AppsActivity : BaseActivity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutDirection = View.LAYOUT_DIRECTION_LTR
-            setPadding(dp(24), dp(18), dp(24), dp(12))
+            setPadding(dp(20), dp(12), dp(20), dp(10))
+            isFocusableInTouchMode = true
         }
         setContentView(root)
         root.background = background()
+        root.requestFocus()
 
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -152,7 +154,7 @@ class Mg5AppsActivity : BaseActivity() {
         })
         root.addView(View(this), LinearLayout.LayoutParams(1, dp(13)))
         grid = RecyclerView(this).apply {
-            layoutManager = GridLayoutManager(this@Mg5AppsActivity, 6)
+            layoutManager = GridLayoutManager(this@Mg5AppsActivity, 5)
             clipToPadding = false
             setPadding(0, dp(2), 0, dp(12))
         }
@@ -210,6 +212,7 @@ class Mg5AppsActivity : BaseActivity() {
         }
         apps = mutable.sortedWith(compareBy<Tile> { priority(it) }.thenBy { it.title.lowercase(Locale.ROOT) })
         refreshFilter()
+        grid.scrollToPosition(0)
     }
 
     private fun matchesCategory(tile: Tile): Boolean {
@@ -281,18 +284,18 @@ class Mg5AppsActivity : BaseActivity() {
                 isFocusable = true
                 setPadding(dp(6), dp(13), dp(6), dp(10))
             }
-            val p = RecyclerView.LayoutParams(-1, dp(146)).apply {
-                setMargins(dp(7), dp(7), dp(7), dp(7))
+            val p = RecyclerView.LayoutParams(-1, dp(176)).apply {
+                setMargins(dp(8), dp(8), dp(8), dp(8))
             }
             wrapper.layoutParams = p
             val icon = ImageView(this@Mg5AppsActivity).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 tag = "noTint"
             }
-            wrapper.addView(icon, LinearLayout.LayoutParams(dp(67), dp(67)))
+            wrapper.addView(icon, LinearLayout.LayoutParams(dp(82), dp(82)))
             wrapper.addView(View(this@Mg5AppsActivity), LinearLayout.LayoutParams(1, dp(10)))
-            val label = text("", 16f, true).apply { maxLines = 2 }
-            wrapper.addView(label, LinearLayout.LayoutParams(-1, dp(37)))
+            val label = text("", 18f, true).apply { maxLines = 2 }
+            wrapper.addView(label, LinearLayout.LayoutParams(-1, dp(43)))
             return Holder(wrapper, icon, label)
         }
         override fun onBindViewHolder(holder: Holder, position: Int) {

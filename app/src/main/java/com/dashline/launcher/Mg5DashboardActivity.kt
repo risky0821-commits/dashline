@@ -13,6 +13,12 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.MotionEvent
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import kotlin.concurrent.thread
+import kotlin.math.abs
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -35,6 +41,10 @@ class Mg5DashboardActivity : BaseActivity() {
     private lateinit var clock: TextView
     private lateinit var gregorian: TextView
     private lateinit var hijri: TextView
+    private lateinit var weatherLabel: TextView
+    private var weatherLastFetched = 0L
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
     private var athkarIndex = 0
     private lateinit var athkarLabel: TextView
     private val athkar = listOf(
@@ -56,6 +66,7 @@ class Mg5DashboardActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         buildDashboard()
         updateDates()
+        fetchWeather()
     }
 
     override fun onResume() {
@@ -63,11 +74,29 @@ class Mg5DashboardActivity : BaseActivity() {
         if (::dashboard.isInitialized) dashboard.background = backdrop()
         handler.removeCallbacks(ticker)
         handler.post(ticker)
+        if (System.currentTimeMillis() - weatherLastFetched > 30L * 60L * 1000L) fetchWeather()
     }
 
     override fun onPause() {
         handler.removeCallbacks(ticker)
         super.onPause()
+    }
+
+    /** Vertical swipe opens applications without altering taps on existing buttons. */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                swipeStartX = ev.x
+                swipeStartY = ev.y
+            }
+            MotionEvent.ACTION_UP -> {
+                if (swipeStartY - ev.y > dp(105) && abs(swipeStartX - ev.x) < dp(190)) {
+                    startActivity(Intent(this, Mg5AppsActivity::class.java))
+                    return true
+                }
+            }
+        }
+        return super.dispatchTouchEvent(ev)
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
@@ -150,11 +179,11 @@ class Mg5DashboardActivity : BaseActivity() {
         body.addView(View(this), LinearLayout.LayoutParams(dp(14), 1))
         body.addView(right, LinearLayout.LayoutParams(0, -1, 1f))
         dashboard.addView(body, LinearLayout.LayoutParams(-1, 0, 1f))
-        dashboard.addView(gap(14))
+        dashboard.addView(gap(10))
 
         val map = card("#10416A", "#07283D")
         map.background = shape(shade("#10436A"), shade("#07283E"), 24, shade("#207F9A"))
-        map.addView(text("الملاحة", 17f, mint, true))
+        map.addView(text("الملاحة", 19f, mint, true))
         map.addView(gap(18))
         map.addView(text("الطريق أمامك", 40f, ink, true))
         map.addView(gap(8))
@@ -163,7 +192,7 @@ class Mg5DashboardActivity : BaseActivity() {
         val mapAction = button("افتح الخرائط", "➤", shade("#12D8CC"), shade("#088EBA"), ink) {
             openPackage("com.google.android.apps.maps")
         }
-        map.addView(mapAction, LinearLayout.LayoutParams(-1, dp(62)))
+        map.addView(mapAction, LinearLayout.LayoutParams(-1, dp(76)))
         map.setOnClickListener { openPackage("com.google.android.apps.maps") }
         left.addView(map, LinearLayout.LayoutParams(-1, 0, 1.55f))
         left.addView(gap(12))
@@ -189,27 +218,46 @@ class Mg5DashboardActivity : BaseActivity() {
             sendMedia(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
         }
         val next = button("التالي", "▶▶", shade("#273F4A")) { sendMedia(KeyEvent.KEYCODE_MEDIA_NEXT) }
-        controls.addView(prev, LinearLayout.LayoutParams(0, dp(55), 1f))
+        controls.addView(prev, LinearLayout.LayoutParams(0, dp(67), 1f))
         controls.addView(View(this), LinearLayout.LayoutParams(dp(8), 1))
-        controls.addView(pause, LinearLayout.LayoutParams(0, dp(55), 1.3f))
+        controls.addView(pause, LinearLayout.LayoutParams(0, dp(67), 1.3f))
         controls.addView(View(this), LinearLayout.LayoutParams(dp(8), 1))
-        controls.addView(next, LinearLayout.LayoutParams(0, dp(55), 1f))
+        controls.addView(next, LinearLayout.LayoutParams(0, dp(67), 1f))
         media.addView(controls)
         left.addView(media, LinearLayout.LayoutParams(-1, 0, 1f))
 
         val dateCard = card("#172834", "#12222D")
-        val cap = text("الوقت والتاريخ", 15f, mint, true)
+        val cap = text("الساعة والتاريخ  •  الرياض", 17f, mint, true)
         dateCard.addView(cap)
-        clock = text("--:--", 58f, ink, true)
+        clock = text("--:--", 66f, ink, true)
         clock.textDirection = View.TEXT_DIRECTION_LTR
         clock.gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
         dateCard.addView(clock)
-        gregorian = text("", 15f, ink)
-        hijri = text("", 15f, muted)
+        gregorian = text("", 16f, ink)
+        hijri = text("", 16f, muted)
         dateCard.addView(gregorian)
         dateCard.addView(gap(6))
         dateCard.addView(hijri)
-        right.addView(dateCard, LinearLayout.LayoutParams(-1, 0, 1.7f))
+        dateCard.addView(gap(10))
+        weatherLabel = text("طقس الرياض  •  جارٍ التحديث…", 17f, ink, true)
+        weatherLabel.background = shape(shade("#14537A"), shade("#103C63"), 15, shade("#208EB0"))
+        weatherLabel.setPadding(dp(12), 0, dp(12), 0)
+        dateCard.addView(weatherLabel, LinearLayout.LayoutParams(-1, dp(48)))
+        right.addView(dateCard, LinearLayout.LayoutParams(-1, 0, 1.18f))
+        right.addView(gap(12))
+
+        // Direct shortcut to the original factory climate app; no CAN-BUS changes.
+        val climate = card("#153B55", "#102A43")
+        climate.addView(text("❄  المكيف", 22f, mint, true))
+        climate.addView(gap(5))
+        climate.addView(text("إعدادات تكييف السيارة", 16f, muted))
+        climate.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+        val openClimate = button("افتح المكيف", "❄", shade("#0D9CAB"), shade("#1676AE")) {
+            openClimateApp()
+        }
+        climate.addView(openClimate, LinearLayout.LayoutParams(-1, dp(62)))
+        climate.setOnClickListener { openClimateApp() }
+        right.addView(climate, LinearLayout.LayoutParams(-1, 0, 0.83f))
         right.addView(gap(12))
 
         val athkarCard = card("#2B302B", "#232E2B")
@@ -221,7 +269,7 @@ class Mg5DashboardActivity : BaseActivity() {
             athkarIndex = (athkarIndex + 1) % athkar.size
             athkarLabel.text = athkar[athkarIndex]
         }
-        right.addView(athkarCard, LinearLayout.LayoutParams(-1, 0, 0.55f))
+        right.addView(athkarCard, LinearLayout.LayoutParams(-1, 0, 0.48f))
 
         val footer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -229,11 +277,10 @@ class Mg5DashboardActivity : BaseActivity() {
         }
         val shortcuts = listOf(
             Triple("التطبيقات", "▦", "apps"),
+            Triple("المكيف", "❄", "climate"),
+            Triple("يوتيوب", "▶", "youtube"),
             Triple("الراديو", "◉", "radio"),
-            Triple("بلوتوث", "☎", "bt"),
             Triple("الموسيقى", "♫", "music"),
-            Triple("خرائط", "➤", "maps"),
-            Triple("الإعدادات", "⚙", "settings"),
             Triple("الأصلية", "⌂", "dofun")
         )
         shortcuts.forEachIndexed { index, (label, symbol, action) ->
@@ -242,17 +289,16 @@ class Mg5DashboardActivity : BaseActivity() {
                 when (action) {
                     "apps" -> startActivity(Intent(this, Mg5AppsActivity::class.java))
                     "radio" -> openCarApp("com.tw.radio", "com.tw.radio.RadioActivity")
-                    "bt" -> openCarApp("com.tw.bt", "com.tw.bt.ATBluetoothActivity")
+                    "climate" -> openClimateApp()
+                    "youtube" -> openPackage("com.google.android.youtube")
                     "music" -> openMusic()
-                    "maps" -> openPackage("com.google.android.apps.maps")
-                    "settings" -> startActivity(Intent(this, SettingsActivity::class.java))
                     "dofun" -> openCarApp("com.dofun.variety", "com.dofun.overseasvariety.Launcher")
                 }
             }
             if (index > 0) footer.addView(View(this), LinearLayout.LayoutParams(dp(8), 1))
-            footer.addView(tile, LinearLayout.LayoutParams(0, dp(75), 1f))
+            footer.addView(tile, LinearLayout.LayoutParams(0, dp(87), 1f))
         }
-        dashboard.addView(footer, LinearLayout.LayoutParams(-1, dp(75)))
+        dashboard.addView(footer, LinearLayout.LayoutParams(-1, dp(87)))
     }
 
     private fun button(label: String, mark: String, start: Int, end: Int = start,
@@ -265,9 +311,9 @@ class Mg5DashboardActivity : BaseActivity() {
             isFocusable = true
             contentDescription = label
         }
-        val icon = text(mark, 22f, foreground, true, Gravity.CENTER)
+        val icon = text(mark, 27f, foreground, true, Gravity.CENTER)
         button.addView(icon, LinearLayout.LayoutParams(-1, 0, 1f))
-        button.addView(text(label, 14f, foreground, true, Gravity.CENTER),
+        button.addView(text(label, 17f, foreground, true, Gravity.CENTER),
             LinearLayout.LayoutParams(-1, 0, 1f))
         if (click != null) button.setOnClickListener { click() }
         return button
@@ -289,6 +335,74 @@ class Mg5DashboardActivity : BaseActivity() {
         }
         if (found == null || !AppRepository.launch(this, found)) {
             Toast.makeText(this, "ثبّت مشغل موسيقى مثل Musicolet أو افتح Lark Player", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** Open the factory AirCondition app by its Android launcher label. */
+    private fun openClimateApp() {
+        val pm = packageManager
+        val candidates = pm.queryIntentActivities(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0
+        )
+        val target = candidates.firstOrNull {
+            val name = it.loadLabel(pm).toString().lowercase(Locale.ROOT)
+            name == "aircondition" || name.contains("air conditioning") ||
+                name.contains("aircondition") || name.contains("المكيف") ||
+                name.contains("تكييف")
+        }
+        if (target != null) {
+            try {
+                startActivity(
+                    Intent(Intent.ACTION_MAIN)
+                        .addCategory(Intent.CATEGORY_LAUNCHER)
+                        .setClassName(target.activityInfo.packageName, target.activityInfo.name)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+                return
+            } catch (_: Exception) {}
+        }
+        Toast.makeText(this, "تطبيق المكيف غير متاح من هذا الاختصار", Toast.LENGTH_LONG).show()
+    }
+
+    private fun weatherDescription(code: Int): String = when (code) {
+        0 -> "صحو"
+        1, 2 -> "غائم جزئيًا"
+        3 -> "غائم"
+        45, 48 -> "ضباب"
+        in 51..67, in 80..82 -> "مطر"
+        in 71..77, in 85..86 -> "ثلوج"
+        in 95..99 -> "عواصف"
+        else -> "طقس متغير"
+    }
+
+    /** Fetch measured current Riyadh weather from Open-Meteo, without location permission. */
+    private fun fetchWeather() {
+        if (!::weatherLabel.isInitialized) return
+        weatherLastFetched = System.currentTimeMillis()
+        thread(name = "MG5-current-weather") {
+            try {
+                val url = URL("https://api.open-meteo.com/v1/forecast?latitude=24.7136&longitude=46.6753&current=temperature_2m,weather_code&timezone=Asia%2FRiyadh")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 6000
+                conn.readTimeout = 6000
+                val response = try { conn.inputStream.bufferedReader().use { it.readText() } }
+                    finally { conn.disconnect() }
+                val current = JSONObject(response).getJSONObject("current")
+                val temperature = current.getDouble("temperature_2m")
+                val code = current.optInt("weather_code", -1)
+                runOnUiThread {
+                    if (!isFinishing) {
+                        weatherLabel.text = String.format(
+                            Locale.US, "الرياض  •  %.0f°م  •  %s",
+                            temperature, weatherDescription(code)
+                        )
+                    }
+                }
+            } catch (_: Exception) {
+                runOnUiThread {
+                    if (!isFinishing) weatherLabel.text = "طقس الرياض غير متاح دون إنترنت"
+                }
+            }
         }
     }
 
