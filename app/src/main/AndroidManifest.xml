@@ -27,6 +27,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.RadioLauncher">
 
+        <activity android:name=".Mg5DashboardActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.RadioLauncher">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".HomeActivity"
             android:exported="true"
@@ -34,13 +45,7 @@
             android:stateNotNeeded="true"
             android:configChanges="keyboard|keyboardHidden|navigation"
             android:theme="@style/Theme.RadioLauncher">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <!-- HOME + DEFAULT is what makes Android offer this app as a launcher. -->
-                <category android:name="android.intent.category.HOME" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+
         </activity>
 
         <!--
@@ -48,6 +53,11 @@
           field. Without it the search box takes first focus and the on-screen
           keyboard covers half the grid the moment the Apps tab is tapped.
         -->
+        <activity
+            android:name=".Mg5AppsActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateAlwaysHidden|adjustResize"
+            android:parentActivityName=".Mg5DashboardActivity" />
         <activity
             android:name=".AppDrawerActivity"
             android:exported="false"
