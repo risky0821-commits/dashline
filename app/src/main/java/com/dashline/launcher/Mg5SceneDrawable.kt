@@ -185,6 +185,22 @@ class Mg5GlyphDrawable(private val kind: String) : Drawable() {
                 val triangle=Path().apply{moveTo(42f,33f);lineTo(42f,67f);lineTo(70f,50f);close()}
                 canvas.drawPath(triangle,p)
             }
+            "back" -> {
+                // Bold right-to-left return arrow: clear even on 1280x720.
+                p.style = Paint.Style.STROKE
+                p.strokeWidth = 12f
+                p.strokeCap = Paint.Cap.ROUND
+                p.strokeJoin = Paint.Join.ROUND
+                val arrow = Path().apply {
+                    moveTo(39f, 20f)
+                    lineTo(15f, 48f)
+                    lineTo(39f, 75f)
+                }
+                canvas.drawPath(arrow, p)
+                canvas.drawLine(18f, 48f, 69f, 48f, p)
+                canvas.drawArc(RectF(46f, 35f, 88f, 81f), -93f, 173f, false, p)
+                p.style = Paint.Style.FILL
+            }
             "home" -> {
                 val roof=Path().apply{moveTo(10f,45f);lineTo(50f,8f);lineTo(90f,45f);lineTo(80f,55f);lineTo(78f,87f);lineTo(57f,87f);lineTo(57f,63f);lineTo(43f,63f);lineTo(43f,87f);lineTo(22f,87f);lineTo(20f,55f);close()}
                 canvas.drawPath(roof,p)
@@ -227,4 +243,32 @@ class Mg5GlyphDrawable(private val kind: String) : Drawable() {
     override fun setColorFilter(filter:android.graphics.ColorFilter?) {p.colorFilter=filter;invalidateSelf()}
     @Suppress("DEPRECATION")
     override fun getOpacity()=PixelFormat.TRANSLUCENT
+}
+
+// Larger bright Wi-Fi status mark in the top header (only drawn when connected).
+class Mg5WifiDrawable : Drawable() {
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    override fun draw(canvas: Canvas) {
+        val rect = bounds
+        if (rect.width() <= 0 || rect.height() <= 0) return
+        val old = canvas.save()
+        canvas.translate(rect.left.toFloat(), rect.top.toFloat())
+        canvas.scale(rect.width() / 100f, rect.height() / 100f)
+        paint.color = 0xFF26F3E9.toInt()
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 10f
+        paint.strokeCap = Paint.Cap.ROUND
+        canvas.drawArc(RectF(5f, 14f, 95f, 93f), 222f, 96f, false, paint)
+        canvas.drawArc(RectF(25f, 34f, 75f, 92f), 220f, 100f, false, paint)
+        paint.style = Paint.Style.FILL
+        canvas.drawCircle(50f, 80f, 7f, paint)
+        canvas.restoreToCount(old)
+    }
+    override fun setAlpha(alpha: Int) { paint.alpha = alpha; invalidateSelf() }
+    @Suppress("DEPRECATION")
+    override fun setColorFilter(filter: android.graphics.ColorFilter?) {
+        paint.colorFilter = filter; invalidateSelf()
+    }
+    @Suppress("DEPRECATION")
+    override fun getOpacity() = PixelFormat.TRANSLUCENT
 }

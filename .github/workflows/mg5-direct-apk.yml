@@ -21,18 +21,28 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
-          key: mg5-dashboard-android-debug-keystore-alpha3-v1
+          key: mg5-dashboard-stable-signing-alpha6-v1
+      - name: Initialize persistent debug signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -noprompt \
+              -keystore "$HOME/.android/debug.keystore" \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
       - name: Build Android 12 debug APK
         run: gradle assemblePlayDebug --no-daemon --stacktrace
       - name: Prepare APK
-        run: cp app/build/outputs/apk/play/debug/app-play-debug.apk MG5-Dashboard-TS10S-alpha5.apk
+        run: cp app/build/outputs/apk/play/debug/app-play-debug.apk MG5-Dashboard-TS10S-alpha6.apk
       - name: Publish pre-release for easy phone download
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create mg5-ts10s-alpha5 MG5-Dashboard-TS10S-alpha5.apk \
+          gh release create mg5-ts10s-alpha6 MG5-Dashboard-TS10S-alpha6.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "MG5 Dashboard - TS10S Alpha 5" \
+            --title "MG5 Dashboard - TS10S Alpha 6" \
             --notes "Unverified test build for TS10S Android 12. Do not set as default launcher until tested. Source: mg5-dashboard-v1 branch. GPL-3.0." \
             --prerelease

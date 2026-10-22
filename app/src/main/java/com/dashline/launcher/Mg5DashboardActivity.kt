@@ -10,6 +10,9 @@ import android.graphics.drawable.GradientDrawable
 import android.widget.ImageView
 import android.app.AlertDialog
 import android.media.AudioManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -44,9 +47,11 @@ class Mg5DashboardActivity : BaseActivity() {
     private lateinit var gregorian: TextView
     private lateinit var hijri: TextView
     private lateinit var weatherLabel: TextView
+    private lateinit var wifiIndicator: LinearLayout
     private var weatherLastFetched = 0L
     private var swipeStartX = 0f
     private var swipeStartY = 0f
+    private var swipeFired = false
     private var athkarIndex = 0
     private val rideDhikr = "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ، وَإِنَّا إِلَى رَبِّنَا لَمُنْقَلِبُونَ."
     private val exitDhikr = "بِسْمِ اللَّهِ، تَوَكَّلْتُ عَلَى اللَّهِ، وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ."
@@ -62,7 +67,8 @@ class Mg5DashboardActivity : BaseActivity() {
     private val ticker = object : Runnable {
         override fun run() {
             updateDates()
-            handler.postDelayed(this, 30000L)
+            updateWifiIndicator()
+            handler.postDelayed(this, 8000L)
         }
     }
 
@@ -70,6 +76,7 @@ class Mg5DashboardActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         buildDashboard()
         updateDates()
+        updateWifiIndicator()
         fetchWeather()
     }
 
@@ -78,6 +85,7 @@ class Mg5DashboardActivity : BaseActivity() {
         if (::dashboard.isInitialized) dashboard.background = backdrop()
         handler.removeCallbacks(ticker)
         handler.post(ticker)
+        updateWifiIndicator()
         if (System.currentTimeMillis() - weatherLastFetched > 30L * 60L * 1000L) fetchWeather()
     }
 
@@ -86,21 +94,65 @@ class Mg5DashboardActivity : BaseActivity() {
         super.onPause()
     }
 
-    /** Vertical swipe opens applications without altering taps on existing buttons. */
+    /**
+     * Detect swipes during MOVE rather than only on UP: Topway touch stacks can
+     * cancel end-of-gesture events when starting from the bottom edge.
+     * Normal taps still reach their own buttons.
+     */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 swipeStartX = ev.x
                 swipeStartY = ev.y
+                swipeFired = false
             }
-            MotionEvent.ACTION_UP -> {
-                if (swipeStartY - ev.y > dp(105) && abs(swipeStartX - ev.x) < dp(190)) {
-                    startActivity(Intent(this, Mg5AppsActivity::class.java))
+            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
+                if (swipeFired) {
+                    if (ev.actionMasked == MotionEvent.ACTION_UP) swipeFired = false
+                    return true
+                }
+                val vertical = swipeStartY - ev.y
+                val horizontal = abs(swipeStartX - ev.x)
+                if (vertical > dp(68) && vertical > horizontal * 1.5f) {
+                    swipeFired = true
+                    val cancel = MotionEvent.obtain(ev)
+                    cancel.action = MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                    openApps()
                     return true
                 }
             }
+            MotionEvent.ACTION_CANCEL -> swipeFired = false
         }
         return super.dispatchTouchEvent(ev)
+    }
+
+    private fun openApps() {
+        startActivity(Intent(this, Mg5AppsActivity::class.java))
+    }
+
+    /** Real Wi-Fi transport state, not merely whether the Wi-Fi switch is enabled. */
+    private fun updateWifiIndicator() {
+        if (!::wifiIndicator.isInitialized) return
+        val connected = try {
+            val manager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val network = manager.activeNetwork
+                network != null &&
+                    manager.getNetworkCapabilities(network)?.hasTransport(
+                        NetworkCapabilities.TRANSPORT_WIFI
+                    ) == true
+            } else {
+                @Suppress("DEPRECATION")
+                val info = manager.activeNetworkInfo
+                @Suppress("DEPRECATION")
+                info?.isConnected == true && info.type == ConnectivityManager.TYPE_WIFI
+            }
+        } catch (_: Exception) {
+            false
+        }
+        wifiIndicator.visibility = if (connected) View.VISIBLE else View.GONE
     }
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density + 0.5f).toInt()
@@ -160,6 +212,21 @@ class Mg5DashboardActivity : BaseActivity() {
         brand.addView(gap(3))
         brand.addView(text("قيادتك، على طريقتك", 14f, muted, false, Gravity.LEFT))
         top.addView(brand, LinearLayout.LayoutParams(0, dp(54), 1f))
+        wifiIndicator = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
+            background = shape(shade("#13466A"), shade("#0A2C4D"), 17, shade("#20D9E2"))
+            contentDescription = "Wi-Fi متصل"
+            visibility = View.GONE
+        }
+        wifiIndicator.addView(ImageView(this).apply {
+            setImageDrawable(Mg5WifiDrawable())
+            scaleType = ImageView.ScaleType.FIT_CENTER
+        }, LinearLayout.LayoutParams(dp(45), dp(45)))
+        wifiIndicator.addView(text("Wi-Fi", 18f, mint, true, Gravity.CENTER))
+        top.addView(wifiIndicator, LinearLayout.LayoutParams(dp(142), dp(56)))
+        top.addView(View(this), LinearLayout.LayoutParams(dp(9), 1))
         val classic = button("الكلاسيكية", "↗", shade("#1D3440"), shade("#223744")) {
             startActivity(Intent(this, HomeActivity::class.java))
         }
@@ -287,6 +354,7 @@ class Mg5DashboardActivity : BaseActivity() {
         }
         val shortcuts = listOf(
             Triple("التطبيقات", "▦", "apps"),
+            Triple("رجوع", "↶", "back"),
             Triple("يوتيوب", "▶", "youtube"),
             Triple("خرائط", "➤", "maps"),
             Triple("المكيف", "❄", "climate"),
@@ -298,7 +366,11 @@ class Mg5DashboardActivity : BaseActivity() {
             val tile = button(label, symbol, shade("#1B2C36"), shade("#15242D"))
             tile.setOnClickListener {
                 when (action) {
-                    "apps" -> startActivity(Intent(this, Mg5AppsActivity::class.java))
+                    "apps" -> openApps()
+                    "back" -> {
+                        if (isTaskRoot) moveTaskToBack(true)
+                        else onBackPressedDispatcher.onBackPressed()
+                    }
                     "radio" -> openCarApp("com.tw.radio", "com.tw.radio.RadioActivity")
                     "climate" -> openClimateApp()
                     "youtube" -> openPackage("com.google.android.youtube")
@@ -329,6 +401,7 @@ class Mg5DashboardActivity : BaseActivity() {
         }
         val glyph = when (mark) {
             "▦" -> "apps"
+            "↶" -> "back"
             "❄" -> "climate"
             "▶" -> "youtube"
             "➤" -> "maps"
