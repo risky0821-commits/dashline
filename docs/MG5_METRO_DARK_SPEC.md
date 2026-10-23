@@ -37,3 +37,12 @@ Apps page: installed apps/favorites with drag/resize edit mode, easy back button
 - Long press edit drag/resize works and persists; minimal animation.
 - No interference with DoFun, camera, CANBUS, SWC, or Topway services.
 - New test APK separately evaluated before changing default launcher.
+
+
+## Iteration accepted 2026-10-23 (Preview 2)
+- Back inside the app drawer must be fixed at the **bottom-left**, close to the hand.
+- Maps tile opens an on-screen picker for **installed** navigation applications, not just Google Maps.
+- Clock is 12-hour with Arabic AM/PM marker and Latin digits.
+- Favorite app shortcuts live directly on Metro home: Thmanyah, a separately pinned YouTube alternative (auto-detected if installed; never assume the exact name), and one customizable app favorite tile. Show app's actual name/icon and permit choosing/replacing installed package from long-press edit.
+- Keep weather, Wi-Fi, GPS speed live; music should read actual MediaSession metadata only when notification access is granted, no mock tracks.
+- Retain original Alpha6 and Preview1 APKs; no modifications to OEM systems.

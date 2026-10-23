@@ -95,17 +95,6 @@ class Mg5AppsActivity : BaseActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val home = text("↶", 32f, true).apply {
-            contentDescription = "رجوع"
-            background = panel("#183E63", "#102C4D")
-            isClickable = true
-            isFocusable = true
-            setOnClickListener {
-                startActivity(Intent(this@Mg5AppsActivity, Mg5MetroActivity::class.java))
-                finish()
-            }
-        }
-        header.addView(home, LinearLayout.LayoutParams(dp(72), dp(57)))
         header.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         header.addView(text("كل التطبيقات", 27f, true), LinearLayout.LayoutParams(dp(235), dp(57)))
         header.addView(text("▦", 30f, true).apply { setTextColor(accent) },
@@ -161,6 +150,24 @@ class Mg5AppsActivity : BaseActivity() {
         adapter = TilesAdapter()
         grid.adapter = adapter
         root.addView(grid, LinearLayout.LayoutParams(-1, 0, 1f))
+
+        // Reachable, fixed back control at the bottom-left of the application drawer.
+        val bottom = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
+        }
+        val back = text("↶   رجوع", 22f, true).apply {
+            contentDescription = "رجوع إلى واجهة MG5"
+            background = panel("#164F77", "#103352", 12, "#29A6C9")
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                startActivity(Intent(this@Mg5AppsActivity, Mg5MetroActivity::class.java))
+                finish()
+            }
+        }
+        bottom.addView(back, LinearLayout.LayoutParams(dp(194), dp(61)))
+        root.addView(bottom, LinearLayout.LayoutParams(-1, dp(71)))
         refreshFilter()
     }
 

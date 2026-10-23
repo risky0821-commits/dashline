@@ -34,14 +34,14 @@ jobs:
       - name: Compile MG5 Metro Dark Preview
         run: gradle assemblePlayDebug --no-daemon --stacktrace
       - name: Stage APK
-        run: cp app/build/outputs/apk/play/debug/app-play-debug.apk MG5-Metro-Dark-Preview-1.apk
+        run: cp app/build/outputs/apk/play/debug/app-play-debug.apk MG5-Metro-Dark-Preview-2.apk
       - name: Publish preview
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create mg5-metro-preview-1 MG5-Metro-Dark-Preview-1.apk \
+          gh release create mg5-metro-preview-2 MG5-Metro-Dark-Preview-2.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "MG5 Metro Dark — Preview 1" \
+            --title "MG5 Metro Dark — Preview 2" \
             --notes "Separate Android launcher preview for Topway TS10S. Does not replace MG5 Dashboard Alpha6. Not yet car-tested. GPL-3.0-only." \
             --prerelease
