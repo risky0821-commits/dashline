@@ -64,6 +64,8 @@ android {
         }
         create("play") {
             dimension = "distribution"
+            // Preview is a separate app: it never replaces the working Alpha 6.
+            applicationIdSuffix = ".metro"
             minSdk = 21
             buildConfigField("boolean", "UPDATE_CHECK", "false")
         }

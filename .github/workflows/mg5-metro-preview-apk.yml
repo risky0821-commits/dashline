@@ -1,0 +1,47 @@
+name: MG5 Metro Dark Preview APK
+on:
+  push:
+    branches: [mg5-metro-dark-v1]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Preserve preview signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: mg5-metro-preview-debug-v1
+      - name: Initialize signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -noprompt -keystore "$HOME/.android/debug.keystore" \
+              -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+      - name: Compile MG5 Metro Dark Preview
+        run: gradle assemblePlayDebug --no-daemon --stacktrace
+      - name: Stage APK
+        run: cp app/build/outputs/apk/play/debug/app-play-debug.apk MG5-Metro-Dark-Preview-1.apk
+      - name: Publish preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create mg5-metro-preview-1 MG5-Metro-Dark-Preview-1.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "MG5 Metro Dark — Preview 1" \
+            --notes "Separate Android launcher preview for Topway TS10S. Does not replace MG5 Dashboard Alpha6. Not yet car-tested. GPL-3.0-only." \
+            --prerelease

@@ -95,13 +95,13 @@ class Mg5AppsActivity : BaseActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val home = text("⌂", 32f, true).apply {
-            contentDescription = "الرئيسية"
+        val home = text("↶", 32f, true).apply {
+            contentDescription = "رجوع"
             background = panel("#183E63", "#102C4D")
             isClickable = true
             isFocusable = true
             setOnClickListener {
-                startActivity(Intent(this@Mg5AppsActivity, Mg5DashboardActivity::class.java))
+                startActivity(Intent(this@Mg5AppsActivity, Mg5MetroActivity::class.java))
                 finish()
             }
         }
