@@ -46,3 +46,10 @@ Apps page: installed apps/favorites with drag/resize edit mode, easy back button
 - Favorite app shortcuts live directly on Metro home: Thmanyah, a separately pinned YouTube alternative (auto-detected if installed; never assume the exact name), and one customizable app favorite tile. Show app's actual name/icon and permit choosing/replacing installed package from long-press edit.
 - Keep weather, Wi-Fi, GPS speed live; music should read actual MediaSession metadata only when notification access is granted, no mock tracks.
 - Retain original Alpha6 and Preview1 APKs; no modifications to OEM systems.
+
+## UI polish approved October 24, 2026 (Preview 3)
+- Clock and Gregorian/Hijri date: remove their textual labels and icons; center the data horizontally and vertically.
+- Preserve 12-hour clock and Latin numerals. Use auto-sizing typography to avoid cropped calendar lines when a tile is resized.
+- Visually align other shortcuts, labels and values centered in their rectangles, with consistently sized gutters and minimum motion.
+- Keep all real-data integrations, favorite app tiles, the navigation app selector, and the working application drawer unchanged.
+- No stock SystemUI/DoFun changes.

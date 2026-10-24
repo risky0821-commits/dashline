@@ -155,7 +155,7 @@ class Mg5MetroActivity : BaseActivity() {
             setPadding(px(6f),0,px(7f),0)
             setOnClickListener { if (editing) { editing = false; drawGrid() } }
         }
-        top.addView(headerAction, LinearLayout.LayoutParams(px(315f),px(60f)))
+        top.addView(headerAction, LinearLayout.LayoutParams(px(290f),px(60f)))
         root.addView(top, LinearLayout.LayoutParams(-1, px(66f)))
         grid = FrameLayout(this).apply {
             layoutDirection = View.LAYOUT_DIRECTION_LTR
@@ -163,9 +163,8 @@ class Mg5MetroActivity : BaseActivity() {
             clipToPadding = false
         }
         root.addView(grid, LinearLayout.LayoutParams(-1,0,1f))
-        root.addView(txt("METRO  •  MG5    |    TS10S", 13f, false, color("#728CA9")).apply {
-            gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
-        }, LinearLayout.LayoutParams(-1,px(20f)))
+        // Avoid a redundant footer under the last row. Full tile height is
+        // more useful than decorative text on a 720p car display.
     }
     private fun saveOrder() { prefs.edit().putString("order", order.joinToString(",")).apply() }
     private fun drawGrid() {
@@ -213,34 +212,77 @@ class Mg5MetroActivity : BaseActivity() {
             isFocusable = true
             contentDescription = def.label
         }
-        val favoriteApp = if (def.id in favoriteIds) favoriteApp(def.id) else null
-        if (favoriteApp?.icon != null) {
-            box.addView(ImageView(this).apply {
-                setImageDrawable(favoriteApp.icon)
-                scaleType = ImageView.ScaleType.FIT_CENTER
-            }, LinearLayout.LayoutParams(px(55f), 0, 0.6f))
-        } else {
-            val first = txt(def.icon,if(w==1) 31f else if(h==2) 76f else 32f,true,color("#C9F9F4")).apply {
-                gravity = Gravity.LEFT or Gravity.CENTER_VERTICAL
+        val primaryInfo = def.id == "clock" || def.id == "date"
+        if (primaryInfo) {
+            // Treat clock and date as information, not app shortcuts:
+            // no obvious title/icon, centered with all the tile space available.
+            box.gravity = Gravity.CENTER
+            box.setPadding(px(10f), px(10f), px(10f), px(10f))
+            val content = txt("—", if (def.id == "clock") 46f else 20f,
+                def.id == "clock").apply {
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+                textDirection = if (def.id == "clock") View.TEXT_DIRECTION_LTR
+                    else View.TEXT_DIRECTION_FIRST_STRONG
+                maxLines = if (def.id == "clock") 1 else 3
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    setAutoSizeTextTypeUniformWithConfiguration(
+                        if (def.id == "clock") 24 else 14,
+                        if (def.id == "clock") 46 else 22,
+                        1,
+                        android.util.TypedValue.COMPLEX_UNIT_SP
+                    )
+                }
+                setLineSpacing(px(5f).toFloat(), 1f)
             }
-            box.addView(first,LinearLayout.LayoutParams(-1,0,if(h==2) 1.5f else 0.6f))
-        }
-        val name = txt(favoriteApp?.label ?: def.label, if(w==1) 17f else 21f, true)
-        box.addView(name, LinearLayout.LayoutParams(-1,px(if(h==2) 45f else 34f)))
-        if (def.id in setOf("clock","date","weather","speed","wifi","music")) {
-            val content = txt("—",when(def.id) {
-                "clock" -> 32f; "date" -> 16f; "weather" -> 20f; "speed" -> 26f
-                else -> 15f
-            },def.id in setOf("clock","speed")).apply {
-                gravity = Gravity.RIGHT or Gravity.TOP
-                maxLines = if(def.id=="date") 3 else 2
-            }
-            box.addView(content, LinearLayout.LayoutParams(-1,0,1f))
+            box.addView(content, LinearLayout.LayoutParams(-1, -1))
             values[def.id] = content
         } else {
-            val hint = if(def.id=="maps") "اختر تطبيق الملاحة" else ""
-            if(hint.isNotEmpty()) box.addView(txt(hint,15f,false,color("#D3E9F3")))
-            box.addView(View(this),LinearLayout.LayoutParams(1,0,1f))
+            // Metro grid: every shortcut and live tile follows the same
+            // centered icon -> label -> value rhythm.
+            box.gravity = Gravity.CENTER
+            val favoriteApp = if (def.id in favoriteIds) favoriteApp(def.id) else null
+            if (favoriteApp?.icon != null) {
+                box.addView(ImageView(this).apply {
+                    setImageDrawable(favoriteApp.icon)
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                }, LinearLayout.LayoutParams(px(if(w==1) 49f else 60f), 0, 0.7f))
+            } else {
+                val first = txt(def.icon,
+                    if (w == 1) 29f else if (h == 2) 62f else 36f,
+                    true, color("#C9F9F4")).apply {
+                    gravity = Gravity.CENTER
+                    textAlignment = View.TEXT_ALIGNMENT_CENTER
+                }
+                box.addView(first, LinearLayout.LayoutParams(-1, 0,
+                    if (h == 2) 1.4f else 0.65f))
+            }
+            val name = txt(favoriteApp?.label ?: def.label, if(w==1) 16f else 20f, true).apply {
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+                maxLines = 2
+            }
+            box.addView(name, LinearLayout.LayoutParams(-1, px(if(h==2) 45f else 34f)))
+            if (def.id in setOf("weather","speed","wifi","music")) {
+                val content = txt("—", when(def.id) {
+                    "weather" -> 20f; "speed" -> 25f; else -> 15f
+                }, def.id == "speed").apply {
+                    gravity = Gravity.CENTER
+                    textAlignment = View.TEXT_ALIGNMENT_CENTER
+                    maxLines = 3
+                }
+                box.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
+                values[def.id] = content
+            } else {
+                val hint = if(def.id=="maps") "اختر تطبيق الملاحة" else ""
+                if(hint.isNotEmpty()) {
+                    box.addView(txt(hint, 14f, false, color("#D3E9F3")).apply {
+                        gravity = Gravity.CENTER
+                        textAlignment = View.TEXT_ALIGNMENT_CENTER
+                    })
+                }
+                box.addView(View(this), LinearLayout.LayoutParams(1, 0, 0.15f))
+            }
         }
         box.setOnLongClickListener {
             if (!editing) {
