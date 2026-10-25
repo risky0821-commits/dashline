@@ -53,3 +53,23 @@ Apps page: installed apps/favorites with drag/resize edit mode, easy back button
 - Visually align other shortcuts, labels and values centered in their rectangles, with consistently sized gutters and minimum motion.
 - Keep all real-data integrations, favorite app tiles, the navigation app selector, and the working application drawer unchanged.
 - No stock SystemUI/DoFun changes.
+
+
+## OEM read-only capability audit — 2026-10-25 (real device, 12 APKs)
+
+Device: TS10S UIS7862A Android 12 API31, 1280x720, 160dpi, arm64; SELinux permissive but bootloader reported locked. Stock DoFun remains default home. A third-party launcher MUST NOT change OEM services or safety features.
+
+Findings verified from OEM Android manifests and static DEX declarations:
+- `com.tw.ac`: exported `AirService` with action `com.tw.ac.AirService.Bind`; AIDL `IAirConditionController`/`IAirConditionReceive` referenced. Actual read-only setpoint/fan access UNVERIFIED; do not display fabricated values.
+- `com.tw.carinfoservice`: exported `CarService` with `CarService.Bind`; declares normal-protection `com.tw.carinfoservice.permission.USE_AIDL`. Actual data availability remains UNVERIFIED.
+- `com.tw.radio`: exported `RadioActivity` and `RadioService`; `com.tw.bt` contains vendor AIDL `ITWCommandAidl` and radio/music callbacks, with methods for registration and station notifications. Third-party binding remains UNVERIFIED.
+- `com.tw.fcam`: `FCamActivity` is a normal launcher activity. Front-camera activity invocation can be checked ONLY with car safely parked; feed presence not proven.
+- `com.tw.reverse`: reverse/stream activities exported; DO NOT spoof reverse or issue gear/camera control signals. A safe preview, if supported at all, requires factory behavior validation.
+- `com.tw.rightview`: an OEM action `com.tw.rightview_open` is declared; real side-camera use not proven.
+- Stock launcher photo independently shows FM station, OEM speed, outside temperature, voltage and Bluetooth media, but does NOT prove these are shareable with an unprivileged launcher.
+- Current package list includes `com.thmanyah.podcast`, `org.schabi.newpipe`, `com.dywx.larkplayer`, Google Maps and Huawei Maps. Respect user selection, show true icons and labels.
+- `SystemUI.apk` is a privileged OEM build with `com.tw.systemui.theme` active. Do not flash, disable or replace it.
+
+Missing from the FIRST APK collection: `com.tw.service.xt`, `com.tw.jar1`, `com.tw.music`, `com.tw.car`. Request a **single** supplementary read-only pull, with no control actions, before committing to car-data widget integrations.
+
+Engineering sequence: (1) implement launcher-only swipes, tiles, weather, GPS/media; (2) inspect vendor interface definitions; (3) parked, read-only service subscription and compare with factory UI; (4) only validated, safe controls, never undocumented gear signals. **Cruise control completely excluded from all investigation and implementation.**
