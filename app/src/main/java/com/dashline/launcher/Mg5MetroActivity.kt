@@ -88,6 +88,10 @@ class Mg5MetroActivity : BaseActivity() {
     private var weatherCode = -1
     private var gpsSpeed: Float? = null
     private val favoriteIds = setOf("fav_thmanyah", "fav_video", "fav_custom")
+    private val editableAppIds = favoriteIds + setOf(
+        "maps", "music", "radio", "ac", "youtube", "factory"
+    )
+    private var cachedLaunchables: List<AppInfo> = emptyList()
     private var gpsListener: LocationListener? = null
     private var lastWeatherFetch = 0L
     private val ticker = object : Runnable {
@@ -201,6 +205,7 @@ class Mg5MetroActivity : BaseActivity() {
     private fun drawGrid() {
         if (!::grid.isInitialized || grid.width == 0 || grid.height == 0) return
         grid.removeAllViews()
+        cachedLaunchables = AppRepository.loadLaunchableApps(this)
         values.clear()
         headerAction.text = if(editing) "✓  إنهاء التعديل" else "اضغط مطولًا على بلاطة للتخصيص"
         val gap = px(9f)
@@ -240,7 +245,7 @@ class Mg5MetroActivity : BaseActivity() {
             setPadding(px(if(w==1) 10f else 19f), px(11f), px(if(w==1) 10f else 19f), px(12f))
             background = if(def.id=="clock" || def.id=="date") bg(def.fill)
                 else MetroFullTileDrawable(def.id, color(def.fill),
-                    if(def.id in favoriteIds) favoriteApp(def.id)?.icon else null)
+                    if(def.id in editableAppIds) chosenApp(def.id)?.icon else null)
             isClickable = true
             isFocusable = true
             contentDescription = def.label
@@ -275,7 +280,7 @@ class Mg5MetroActivity : BaseActivity() {
             // on an otherwise empty square. Titles sit on a bottom fade.
             box.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             box.setPadding(px(9f),px(6f),px(9f),px(10f))
-            val favoriteApp = if(def.id in favoriteIds) favoriteApp(def.id) else null
+            val favoriteApp = if(def.id in editableAppIds) chosenApp(def.id) else null
             val name = txt(favoriteApp?.label ?: def.label,
                 if(w==1) 17f else 21f,true).apply {
                 gravity=Gravity.CENTER
@@ -317,7 +322,7 @@ class Mg5MetroActivity : BaseActivity() {
             }
         }
         box.setOnClickListener {
-            if(editing) sizeDialog(def) else launch(def.action)
+            if(editing) sizeDialog(def) else launchTile(def)
         }
         box.setOnDragListener { _,event ->
             when(event.action) {
@@ -338,25 +343,46 @@ class Mg5MetroActivity : BaseActivity() {
         return box
     }
     private fun sizeDialog(tile:Tile) {
-        val isFavorite = tile.id in favoriteIds
-        val choices = if (isFavorite)
-            arrayOf("صغيرة 1×1","مستطيلة 2×1","مربعة كبيرة 2×2","تغيير التطبيق","إنهاء التعديل")
-            else arrayOf("صغيرة 1×1","مستطيلة 2×1","مربعة كبيرة 2×2","إنهاء التعديل")
-        AlertDialog.Builder(this).setTitle("بلاطة: "+tile.label)
-            .setItems(choices) { _, index ->
-                if (isFavorite && index == 3) { chooseFavorite(tile.id); return@setItems }
-                if(index == choices.lastIndex) { editing=false; drawGrid(); return@setItems }
-                val (w,h) = when(index) { 0 -> 1 to 1;1 -> 2 to 1;else -> 2 to 2 }
-                val currentCount = order.sumOf { key ->
-                    val (a,b) = dims(key)
-                    a*b
-                }
-                val (oldW,oldH) = dims(tile.id)
-                if (currentCount - oldW*oldH + w*h > 24) {
-                    Toast.makeText(this,"المساحة لا تكفي. صغّر بلاطة أخرى أولًا",Toast.LENGTH_SHORT).show()
-                } else {
-                    prefs.edit().putString("size_"+tile.id,"${w}x${h}").apply()
-                    drawGrid()
+        val canSwap = tile.id in editableAppIds
+        val hasReplacement = if (tile.id in favoriteIds) {
+            prefs.contains("favorite_" + tile.id)
+        } else prefs.contains("shortcut_" + tile.id)
+        val choices = mutableListOf("صغيرة 1×1", "مستطيلة 2×1", "مربعة كبيرة 2×2")
+        if (canSwap) choices.add("تغيير التطبيق")
+        if (canSwap && hasReplacement) choices.add("استعادة التطبيق الأصلي")
+        choices.add("إنهاء التعديل")
+        AlertDialog.Builder(this).setTitle("بلاطة: " + tile.label)
+            .setItems(choices.toTypedArray()) { _, index ->
+                val chosen = choices[index]
+                when(chosen) {
+                    "تغيير التطبيق" -> chooseTileApp(tile.id)
+                    "استعادة التطبيق الأصلي" -> {
+                        val key = if(tile.id in favoriteIds) "favorite_" else "shortcut_"
+                        prefs.edit().remove(key + tile.id).apply()
+                        drawGrid()
+                    }
+                    "إنهاء التعديل" -> { editing=false; drawGrid() }
+                    else -> {
+                        val (w,h) = when(index) {
+                            0 -> 1 to 1
+                            1 -> 2 to 1
+                            else -> 2 to 2
+                        }
+                        val currentCount = order.sumOf { key ->
+                            val (a,b) = dims(key)
+                            a*b
+                        }
+                        val (oldW,oldH) = dims(tile.id)
+                        if (currentCount - oldW*oldH + w*h > 24) {
+                            Toast.makeText(this,
+                                "المساحة لا تكفي. صغّر بلاطة أخرى أولًا",
+                                Toast.LENGTH_SHORT).show()
+                        } else {
+                            prefs.edit().putString("size_"+tile.id,
+                                "${w}x${h}").apply()
+                            drawGrid()
+                        }
+                    }
                 }
             }.show()
     }
@@ -443,9 +469,44 @@ class Mg5MetroActivity : BaseActivity() {
             else -> if (action.startsWith("fav:")) launchFavorite(action.substringAfter("fav:"))
         }
     }
+    private fun chosenApp(id:String): AppInfo? {
+        if (id in favoriteIds) return favoriteApp(id)
+        val pkg = prefs.getString("shortcut_" + id, null) ?: return null
+        val all = if(cachedLaunchables.isEmpty()) AppRepository.loadLaunchableApps(this)
+            else cachedLaunchables
+        return all.firstOrNull { it.packageName == pkg }
+    }
+
+    private fun launchTile(tile:Tile) {
+        val pkg = if(tile.id in favoriteIds) null
+            else prefs.getString("shortcut_" + tile.id, null)
+        if(!pkg.isNullOrBlank()) {
+            if(AppRepository.launch(this, pkg)) return
+            Toast.makeText(this,"تعذر فتح التطبيق المحدد",Toast.LENGTH_SHORT).show()
+        }
+        launch(tile.action)
+    }
+
+    private fun chooseTileApp(id:String) {
+        val installed = AppRepository.loadLaunchableApps(this)
+        if(installed.isEmpty()) {
+            Toast.makeText(this,"لا توجد تطبيقات متاحة",Toast.LENGTH_SHORT).show()
+            return
+        }
+        val labels = installed.map { it.label }.toTypedArray()
+        AlertDialog.Builder(this).setTitle("اختر التطبيق لهذه البلاطة")
+            .setItems(labels) { _, index ->
+                val key = if(id in favoriteIds) "favorite_" else "shortcut_"
+                prefs.edit().putString(key+id,installed[index].packageName).apply()
+                editing=false
+                drawGrid()
+            }.setNegativeButton("إلغاء",null).show()
+    }
+
     /** Pin real installed applications, never guess app package names. */
     private fun favoriteApp(id:String): AppInfo? {
-        val installed = AppRepository.loadLaunchableApps(this)
+        val installed = if(cachedLaunchables.isEmpty())
+            AppRepository.loadLaunchableApps(this) else cachedLaunchables
         val saved = prefs.getString("favorite_" + id, null)
         if (!saved.isNullOrBlank()) return installed.firstOrNull { it.packageName == saved }
         val needles = when(id) {

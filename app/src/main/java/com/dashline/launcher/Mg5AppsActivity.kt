@@ -27,7 +27,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.util.Locale
 
-/** Real app icons, real installed apps, larger five-column touch targets. */
+/** Real installed apps, compact configurable 6–8 column landscape drawer. */
 class Mg5AppsActivity : BaseActivity() {
     private val accent = Color.rgb(22, 226, 215)
     private val white = Color.rgb(239, 248, 255)
@@ -42,6 +42,9 @@ class Mg5AppsActivity : BaseActivity() {
     private var swipeStartX = 0f
     private var swipeStartY = 0f
     private var swipeConsumed = false
+    private var drawerCols = 8
+    private lateinit var columnsButton: TextView
+    private val drawerPrefs by lazy { getSharedPreferences("mg5_metro_drawer", MODE_PRIVATE) }
     private var apps: List<Tile> = emptyList()
     private val labels = listOf("الكل", "الملاحة", "الوسائط", "الأدوات")
 
@@ -104,6 +107,7 @@ class Mg5AppsActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = Prefs(this)
+        drawerCols = drawerPrefs.getInt("columns", 8).coerceIn(6, 8)
         build()
         refreshApps()
     }
@@ -129,6 +133,22 @@ class Mg5AppsActivity : BaseActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
+        columnsButton = text("$drawerCols في الصف", 15f, true).apply {
+            contentDescription = "تغيير عدد التطبيقات في الصف"
+            background = panel("#123F66","#0B2847",12,"#277EB0")
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                drawerCols = if (drawerCols == 8) 7 else if (drawerCols == 7) 6 else 8
+                drawerPrefs.edit().putInt("columns", drawerCols).apply()
+                text = "$drawerCols في الصف"
+                grid.layoutManager = GridLayoutManager(this@Mg5AppsActivity, drawerCols)
+                adapter = TilesAdapter()
+                grid.adapter = adapter
+                refreshFilter()
+            }
+        }
+        header.addView(columnsButton, LinearLayout.LayoutParams(dp(112), dp(48)))
         header.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
         header.addView(text("كل التطبيقات", 27f, true), LinearLayout.LayoutParams(dp(235), dp(57)))
         header.addView(text("▦", 30f, true).apply { setTextColor(accent) },
@@ -177,7 +197,7 @@ class Mg5AppsActivity : BaseActivity() {
         })
         root.addView(View(this), LinearLayout.LayoutParams(1, dp(13)))
         grid = RecyclerView(this).apply {
-            layoutManager = GridLayoutManager(this@Mg5AppsActivity, 5)
+            layoutManager = GridLayoutManager(this@Mg5AppsActivity, drawerCols)
             clipToPadding = false
             setPadding(0, dp(2), 0, dp(12))
         }
@@ -320,23 +340,27 @@ class Mg5AppsActivity : BaseActivity() {
             val wrapper = LinearLayout(this@Mg5AppsActivity).apply {
                 orientation = LinearLayout.VERTICAL
                 gravity = Gravity.CENTER
-                background = panel("#12517D", "#092E51", 23, "#1598C8")
+                background = panel("#12517D", "#092E51", 11, "#1598C8")
                 isClickable = true
                 isFocusable = true
-                setPadding(dp(6), dp(13), dp(6), dp(10))
+                setPadding(dp(3), dp(8), dp(3), dp(6))
             }
-            val p = RecyclerView.LayoutParams(-1, dp(176)).apply {
-                setMargins(dp(8), dp(8), dp(8), dp(8))
+            val p = RecyclerView.LayoutParams(-1, dp(when(drawerCols) {
+                6 -> 150; 7 -> 140; else -> 132
+            })).apply {
+                setMargins(dp(4), dp(5), dp(4), dp(5))
             }
             wrapper.layoutParams = p
             val icon = ImageView(this@Mg5AppsActivity).apply {
                 scaleType = ImageView.ScaleType.FIT_CENTER
                 tag = "noTint"
             }
-            wrapper.addView(icon, LinearLayout.LayoutParams(dp(82), dp(82)))
-            wrapper.addView(View(this@Mg5AppsActivity), LinearLayout.LayoutParams(1, dp(10)))
-            val label = text("", 18f, true).apply { maxLines = 2 }
-            wrapper.addView(label, LinearLayout.LayoutParams(-1, dp(43)))
+            wrapper.addView(icon, LinearLayout.LayoutParams(dp(when(drawerCols) {
+                6 -> 66; 7 -> 60; else -> 54
+            }),dp(when(drawerCols) { 6 -> 66; 7 -> 60; else -> 54 })))
+            wrapper.addView(View(this@Mg5AppsActivity), LinearLayout.LayoutParams(1, dp(5)))
+            val label = text("", if (drawerCols == 8) 14f else 15f, true).apply { maxLines = 2 }
+            wrapper.addView(label, LinearLayout.LayoutParams(-1, dp(40)))
             return Holder(wrapper, icon, label)
         }
         override fun onBindViewHolder(holder: Holder, position: Int) {

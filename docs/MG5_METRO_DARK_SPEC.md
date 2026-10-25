@@ -73,3 +73,11 @@ Findings verified from OEM Android manifests and static DEX declarations:
 Missing from the FIRST APK collection: `com.tw.service.xt`, `com.tw.jar1`, `com.tw.music`, `com.tw.car`. Request a **single** supplementary read-only pull, with no control actions, before committing to car-data widget integrations.
 
 Engineering sequence: (1) implement launcher-only swipes, tiles, weather, GPS/media; (2) inspect vendor interface definitions; (3) parked, read-only service subscription and compare with factory UI; (4) only validated, safe controls, never undocumented gear signals. **Cruise control completely excluded from all investigation and implementation.**
+
+
+## Drawer density and reassignable app tiles (2026-10-25)
+- Apps drawer uses **8 apps per row by default** on TS10S landscape 1280x720, with smaller icons and labels and a fixed bottom-left Back button.
+- Visible selector switches among 8/7/6 columns and persists the preference. Search/categories continue working; swipe down closes, swipe up from Metro Home opens.
+- App shortcut tiles can change their associated installed app in edit mode (long press, tap shortcut, choose "تغيير التطبيق"). Also offer Restore Original. Dynamic real app label/icon are shown.
+- Data-only/safety-dependent tiles (clock/date/weather/speed/Wi-Fi) are not converted into generic app shortcuts.
+- Never generate unsolicited design images; implementation is the Android APK itself.
