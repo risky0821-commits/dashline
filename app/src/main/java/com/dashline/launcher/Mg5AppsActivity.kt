@@ -13,6 +13,7 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
@@ -38,6 +39,9 @@ class Mg5AppsActivity : BaseActivity() {
     private lateinit var prefs: Prefs
     private val chips = mutableListOf<TextView>()
     private var selected = 0
+    private var swipeStartX = 0f
+    private var swipeStartY = 0f
+    private var swipeConsumed = false
     private var apps: List<Tile> = emptyList()
     private val labels = listOf("الكل", "الملاحة", "الوسائط", "الأدوات")
 
@@ -66,6 +70,36 @@ class Mg5AppsActivity : BaseActivity() {
     }
     private fun space(width: Int) = View(this).apply { layoutParams = LinearLayout.LayoutParams(dp(width), 1) }
     private fun background() = panel("#061324", "#062C50", 0, "#061324")
+
+    /** Pull down from the top of the drawer to return to Metro home.
+     *  Ordinary app-grid scrolling is preserved when the list is scrolled.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                swipeStartX = ev.x
+                swipeStartY = ev.y
+                swipeConsumed = false
+            }
+            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
+                if (swipeConsumed) return true
+                val downward = ev.y - swipeStartY
+                val sideways = kotlin.math.abs(ev.x - swipeStartX)
+                if (::grid.isInitialized && !grid.canScrollVertically(-1) &&
+                    downward > dp(74) && downward > sideways * 1.5f) {
+                    swipeConsumed = true
+                    val cancel = MotionEvent.obtain(ev)
+                    cancel.action = MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                    finish()
+                    return true
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> swipeConsumed = false
+        }
+        return super.dispatchTouchEvent(ev)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

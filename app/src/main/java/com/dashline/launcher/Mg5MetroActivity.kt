@@ -28,6 +28,7 @@ import android.os.Looper
 import android.provider.Settings
 import android.view.DragEvent
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -79,6 +80,9 @@ class Mg5MetroActivity : BaseActivity() {
     private val values = mutableMapOf<String, TextView>()
     private val order = mutableListOf<String>()
     private var editing = false
+    private var gestureX = 0f
+    private var gestureY = 0f
+    private var gestureTriggered = false
     private var weatherTemp: Double? = null
     private var weatherText = "الرياض"
     private var weatherCode = -1
@@ -116,6 +120,33 @@ class Mg5MetroActivity : BaseActivity() {
         val h = stored?.getOrNull(1)?.toIntOrNull()?.coerceIn(1,2) ?: def.h
         return w to h
     }
+    /** Open apps with a deliberate upward gesture, not during tile edit/drag. */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                gestureX = ev.x
+                gestureY = ev.y
+                gestureTriggered = false
+            }
+            MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP -> {
+                if (gestureTriggered) return true
+                val up = gestureY - ev.y
+                val across = kotlin.math.abs(ev.x - gestureX)
+                if (!editing && up > px(72f) && up > across * 1.4f) {
+                    gestureTriggered = true
+                    val cancel = MotionEvent.obtain(ev)
+                    cancel.action = MotionEvent.ACTION_CANCEL
+                    super.dispatchTouchEvent(cancel)
+                    cancel.recycle()
+                    startActivity(Intent(this, Mg5AppsActivity::class.java))
+                    return true
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> gestureTriggered = false
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         val saved = prefs.getString("order", "")!!.split(",").filter { it in byId }
