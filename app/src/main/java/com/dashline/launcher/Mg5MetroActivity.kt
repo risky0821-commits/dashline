@@ -238,7 +238,9 @@ class Mg5MetroActivity : BaseActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
             setPadding(px(if(w==1) 10f else 19f), px(11f), px(if(w==1) 10f else 19f), px(12f))
-            background = bg(def.fill)
+            background = if(def.id=="clock" || def.id=="date") bg(def.fill)
+                else MetroFullTileDrawable(def.id, color(def.fill),
+                    if(def.id in favoriteIds) favoriteApp(def.id)?.icon else null)
             isClickable = true
             isFocusable = true
             contentDescription = def.label
@@ -269,51 +271,37 @@ class Mg5MetroActivity : BaseActivity() {
             box.addView(content, LinearLayout.LayoutParams(-1, -1))
             values[def.id] = content
         } else {
-            // Metro grid: every shortcut and live tile follows the same
-            // centered icon -> label -> value rhythm.
-            box.gravity = Gravity.CENTER
-            val favoriteApp = if (def.id in favoriteIds) favoriteApp(def.id) else null
-            if (favoriteApp?.icon != null) {
-                box.addView(ImageView(this).apply {
-                    setImageDrawable(favoriteApp.icon)
-                    scaleType = ImageView.ScaleType.FIT_CENTER
-                }, LinearLayout.LayoutParams(px(if(w==1) 49f else 60f), 0, 0.7f))
-            } else {
-                val first = txt(def.icon,
-                    if (w == 1) 29f else if (h == 2) 62f else 36f,
-                    true, color("#C9F9F4")).apply {
-                    gravity = Gravity.CENTER
-                    textAlignment = View.TEXT_ALIGNMENT_CENTER
+            // Entire tile carries its app identity; avoid small glyph centered
+            // on an otherwise empty square. Titles sit on a bottom fade.
+            box.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            box.setPadding(px(9f),px(6f),px(9f),px(10f))
+            val favoriteApp = if(def.id in favoriteIds) favoriteApp(def.id) else null
+            val name = txt(favoriteApp?.label ?: def.label,
+                if(w==1) 17f else 21f,true).apply {
+                gravity=Gravity.CENTER
+                textAlignment=View.TEXT_ALIGNMENT_CENTER
+                maxLines=2
+                if(Build.VERSION.SDK_INT>=26) {
+                    setAutoSizeTextTypeUniformWithConfiguration(
+                        12, if(w==1) 17 else 21, 1,
+                        android.util.TypedValue.COMPLEX_UNIT_SP)
                 }
-                box.addView(first, LinearLayout.LayoutParams(-1, 0,
-                    if (h == 2) 1.4f else 0.65f))
             }
-            val name = txt(favoriteApp?.label ?: def.label, if(w==1) 16f else 20f, true).apply {
-                gravity = Gravity.CENTER
-                textAlignment = View.TEXT_ALIGNMENT_CENTER
-                maxLines = 2
-            }
-            box.addView(name, LinearLayout.LayoutParams(-1, px(if(h==2) 45f else 34f)))
-            if (def.id in setOf("weather","speed","wifi","music")) {
-                val content = txt("—", when(def.id) {
-                    "weather" -> 20f; "speed" -> 25f; else -> 15f
-                }, def.id == "speed").apply {
-                    gravity = Gravity.CENTER
-                    textAlignment = View.TEXT_ALIGNMENT_CENTER
-                    maxLines = 3
+            if(def.id in setOf("weather","speed","wifi","music")) {
+                val value=txt("—",when(def.id){
+                    "speed"->25f; "weather"->21f;else->16f
+                },def.id=="speed").apply{
+                    gravity=Gravity.CENTER
+                    textAlignment=View.TEXT_ALIGNMENT_CENTER
+                    maxLines=3
                 }
-                box.addView(content, LinearLayout.LayoutParams(-1, 0, 1f))
-                values[def.id] = content
-            } else {
-                val hint = if(def.id=="maps") "اختر تطبيق الملاحة" else ""
-                if(hint.isNotEmpty()) {
-                    box.addView(txt(hint, 14f, false, color("#D3E9F3")).apply {
-                        gravity = Gravity.CENTER
-                        textAlignment = View.TEXT_ALIGNMENT_CENTER
-                    })
-                }
-                box.addView(View(this), LinearLayout.LayoutParams(1, 0, 0.15f))
+                box.addView(value,LinearLayout.LayoutParams(-1,0,1f))
+                values[def.id]=value
+            }else {
+                box.addView(View(this),LinearLayout.LayoutParams(1,0,1f))
             }
+            box.addView(name,LinearLayout.LayoutParams(-1,
+                px(if(h==2) 50f else 37f)))
         }
         box.setOnLongClickListener {
             if (!editing) {
