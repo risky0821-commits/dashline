@@ -5,7 +5,10 @@ package com.dashline.launcher
 
 import android.content.Context
 import android.content.Intent
+import android.content.ComponentName
+import android.content.pm.LauncherApps
 import android.content.pm.PackageManager
+import android.os.Process
 
 /**
  * Loads the list of launchable apps from PackageManager.
@@ -22,6 +25,18 @@ object AppRepository {
 
         val activities = pm.queryIntentActivities(intent, 0)
         val ownPackage = context.packageName
+        // LauncherApps exposes the density-specific icon asset. TS10S is
+        // commonly configured at 160 dpi, which gives soft enlarged icons
+        // if we rely exclusively on ResolveInfo.loadIcon().
+        val highDensityIcons = try {
+            val launcher = context.getSystemService(Context.LAUNCHER_APPS_SERVICE)
+                as LauncherApps
+            launcher.getActivityList(null, Process.myUserHandle())
+                .associateBy { it.componentName }
+        } catch (_: Exception) {
+            emptyMap<ComponentName, android.content.pm.LauncherActivityInfo>()
+        }
+        val desiredDpi = maxOf(context.resources.displayMetrics.densityDpi, 320)
 
         return activities
             .asSequence()
@@ -32,7 +47,12 @@ object AppRepository {
                 AppInfo(
                     label = resolveInfo.loadLabel(pm).toString(),
                     packageName = pkg,
-                    icon = resolveInfo.loadIcon(pm)
+                    icon = try {
+                        highDensityIcons[ComponentName(pkg, resolveInfo.activityInfo.name)]
+                            ?.getIcon(desiredDpi) ?: resolveInfo.loadIcon(pm)
+                    } catch (_: Exception) {
+                        resolveInfo.loadIcon(pm)
+                    }
                 )
             }
             .distinctBy { it.packageName }

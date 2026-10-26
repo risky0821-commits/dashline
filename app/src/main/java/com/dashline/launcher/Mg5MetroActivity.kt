@@ -244,8 +244,13 @@ class Mg5MetroActivity : BaseActivity() {
             gravity = Gravity.RIGHT or Gravity.CENTER_VERTICAL
             setPadding(px(if(w==1) 10f else 19f), px(11f), px(if(w==1) 10f else 19f), px(12f))
             background = if(def.id=="clock" || def.id=="date") bg(def.fill)
-                else MetroFullTileDrawable(def.id, color(def.fill),
-                    if(def.id in editableAppIds) chosenApp(def.id)?.icon else null)
+                else {
+                    val assigned = if(def.id in editableAppIds) chosenApp(def.id) else null
+                    MetroFullTileDrawable(
+                        if(assigned != null) "custom" else def.id,
+                        color(def.fill), assigned?.icon
+                    )
+                }
             isClickable = true
             isFocusable = true
             contentDescription = def.label

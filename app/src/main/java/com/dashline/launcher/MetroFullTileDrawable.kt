@@ -6,10 +6,13 @@ import android.graphics.ColorFilter
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.PixelFormat
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
+import kotlin.math.max
+import kotlin.math.min
 
 /** Offline full-tile app illustrations, not floating central shortcut glyphs. */
 class MetroFullTileDrawable(
@@ -26,14 +29,24 @@ class MetroFullTileDrawable(
     override fun draw(canvas: Canvas) {
         val b=bounds
         if(b.width()<=0||b.height()<=0)return
-        val save=canvas.save()
-        canvas.translate(b.left.toFloat(),b.top.toFloat())
-        canvas.scale(b.width()/480f,b.height()/300f)
-        p.style=Paint.Style.FILL
-        p.shader=LinearGradient(0f,0f,480f,300f,
-            intArrayOf(themeColor, darken(themeColor,0.9f),darken(themeColor,0.64f)),
-            null,Shader.TileMode.CLAMP)
-        canvas.drawRect(0f,0f,480f,300f,p);p.shader=null
+        val tileWidth = b.width().toFloat()
+        val tileHeight = b.height().toFloat()
+        val save = canvas.save()
+        canvas.translate(b.left.toFloat(), b.top.toFloat())
+        canvas.clipRect(0f, 0f, tileWidth, tileHeight)
+        p.style = Paint.Style.FILL
+        p.shader = LinearGradient(0f, 0f, tileWidth, tileHeight,
+            intArrayOf(themeColor, darken(themeColor,0.9f), darken(themeColor,0.64f)),
+            null, Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, tileWidth, tileHeight, p)
+        p.shader = null
+        // Uniform "centerCrop" geometry for full-bleed decorations.
+        // Non-uniform canvas.scale(x, y) distorted square icons on 1x1 tiles.
+        val artSave = canvas.save()
+        val cover = max(tileWidth / 480f, tileHeight / 300f)
+        canvas.translate((tileWidth - 480f * cover) / 2f,
+            (tileHeight - 300f * cover) / 2f)
+        canvas.scale(cover, cover)
         when(type){
             "maps" -> {
                 for(i in -1..8){
@@ -107,19 +120,41 @@ class MetroFullTileDrawable(
                 }
             }
         }
-        // Genuine installed app art scaled into the tile composition.
-        if(appIcon!=null){
-            val icon=appIcon.mutate()
-            val old=icon.bounds
-            icon.setBounds(25,12,245,232)
+        canvas.restoreToCount(artSave)
+        // Draw the genuine app icon after restoring real screen coordinates.
+        // It is never stretched, even on 1x1, 2x1 or 2x2 resized tiles.
+        appIcon?.let { original ->
+            val icon = original.constantState?.newDrawable()?.mutate()
+                ?: original.mutate()
+            val old = Rect(icon.bounds)
+            val naturalW = icon.intrinsicWidth.coerceAtLeast(1).toFloat()
+            val naturalH = icon.intrinsicHeight.coerceAtLeast(1).toFloat()
+            val aspect = naturalW / naturalH
+            val diameter = min(
+                tileWidth * (if (tileWidth > tileHeight * 1.3f) 0.39f else 0.65f),
+                tileHeight * 0.60f
+            )
+            val width = if (aspect >= 1f) diameter else diameter * aspect
+            val height = if (aspect >= 1f) diameter / aspect else diameter
+            val centerX = if(tileWidth > tileHeight * 1.3f)
+                tileWidth * 0.33f else tileWidth * 0.5f
+            val centerY = tileHeight * 0.39f
+            icon.setBounds(
+                (centerX - width / 2f).toInt(),
+                (centerY - height / 2f).toInt(),
+                (centerX + width / 2f).toInt(),
+                (centerY + height / 2f).toInt()
+            )
             icon.draw(canvas)
-            icon.bounds=old
+            icon.bounds = old
         }
-        // Bottom fade guarantees labels remain readable at night.
-        p.shader=LinearGradient(0f,140f,0f,300f,
-            0x00000000,0xD4000A18.toInt(),Shader.TileMode.CLAMP)
-        canvas.drawRect(0f,140f,480f,300f,p)
-        p.shader=null
+        // Bottom text scrim in actual tile coordinates, not 480:300 geometry.
+        p.style = Paint.Style.FILL
+        p.shader = LinearGradient(0f, tileHeight * 0.51f,
+            0f, tileHeight, 0x00000000, 0xD4000A18.toInt(),
+            Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, tileHeight * 0.51f,tileWidth,tileHeight,p)
+        p.shader = null
         canvas.restoreToCount(save)
     }
     private fun darken(c:Int,f:Float)=Color.rgb(

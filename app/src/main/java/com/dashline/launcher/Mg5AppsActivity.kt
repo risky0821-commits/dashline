@@ -352,8 +352,13 @@ class Mg5AppsActivity : BaseActivity() {
             }
             wrapper.layoutParams = p
             val icon = ImageView(this@Mg5AppsActivity).apply {
+                // Render the icon with its native proportions; no centerCrop
+                // or drawable tint. Preserve original app-brand artwork.
                 scaleType = ImageView.ScaleType.FIT_CENTER
+                adjustViewBounds = false
+                imageTintList = null
                 tag = "noTint"
+                setPadding(dp(2), dp(2), dp(2), dp(2))
             }
             wrapper.addView(icon, LinearLayout.LayoutParams(dp(when(drawerCols) {
                 6 -> 66; 7 -> 60; else -> 54
